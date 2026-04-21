@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- 외부 리소스 완전 차단 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; font-src 'none'; frame-src 'none'; object-src 'none';">
+<title>교실 자리 배정</title>
+<style>
+:root {
+  --bg:#0f1117; --surface:#1a1d27; --surface2:#222636; --border:#2e3347;
+  --accent:#4ade80; --accent2:#f59e0b; --accent3:#60a5fa; --danger:#f87171;
+  --text:#e2e8f0; --text-muted:#64748b;
+  --fixed-color:#f87171; --fixed-bg:rgba(248,113,113,0.12);
+  --blocked-color:#475569; --blocked-bg:#141720;
+  --pinned-color:#a78bfa; --pinned-bg:rgba(167,139,250,0.1);
+  --sidebar-w:310px;
+  --font-sans: 'Apple SD Gothic Neo', 'Malgun Gothic', '맑은 고딕', 'Noto Sans KR', sans-serif;
+  --font-mono: 'SF Mono', 'Consolas', 'D2Coding', 'Courier New', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-height:100vh;}
+
+/* ── HEADER ── */
+header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:14px 20px;display:flex;align-items:center;gap:12px;position:relative;z-index:10;
+}
+.logo{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--accent);letter-spacing:-1px;}
+.logo span{color:var(--text-muted);font-weight:400;}
+
+/* ── LAYOUT ── */
+.app{display:flex;height:calc(100vh - 53px);position:relative;overflow:hidden;}
+
+/* ── SIDEBAR WRAPPER ── */
+.sidebar-wrap{
+  position:relative;
+  display:flex;
+  flex-shrink:0;
+  width:var(--sidebar-w);
+  overflow:hidden;                          /* clips sidebar when width→0 */
+  transition:width .32s cubic-bezier(.4,0,.2,1);
+  z-index:5;
+}
+.sidebar-wrap.collapsed{ width:0; }
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar-w);
+  min-width:var(--sidebar-w);              /* keeps content width stable while animating */
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  overflow-y:auto;overflow-x:hidden;
+  padding:20px 18px;
+  display:flex;flex-direction:column;gap:20px;
+  flex-shrink:0;
+}
+
+/* sidebar toggle — floats just outside the wrap, always visible */
+.sidebar-toggle{
+  position:relative;
+  flex-shrink:0;
+  align-self:center;
+  width:20px;height:56px;
+  background:var(--surface2);
+  border:1px solid var(--border);border-left:none;
+  border-radius:0 8px 8px 0;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  color:var(--text-muted);font-size:11px;z-index:20;
+  transition:background .2s,color .2s;
+  user-select:none;
+}
+.sidebar-toggle:hover{background:var(--border);color:var(--text);}
+.sidebar-toggle .arrow{transition:transform .32s;display:inline-block;}
+.sidebar-wrap.collapsed + .sidebar-toggle .arrow{transform:rotate(180deg);}
+
+.section-label{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px;}
+.form-row{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;}
+.form-row label{font-size:12px;color:var(--text-muted);}
+.form-row input,.form-row select{
+  background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);padding:8px 11px;font-size:13px;font-family:inherit;outline:none;transition:border-color .2s;
+}
+.form-row input:focus,.form-row select:focus{border-color:var(--accent3);}
+.form-row select option{background:#1a1d27;}
+.inline-row{display:flex;gap:10px;}
+.inline-row .form-row{flex:1;}
+
+.student-input-area{display:flex;gap:8px;}
+.student-input-area input{
+  flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+  color:var(--text);padding:8px 11px;font-size:13px;font-family:inherit;outline:none;transition:border-color .2s;
+}
+.student-input-area input:focus{border-color:var(--accent3);}
+.btn-add{background:var(--accent3);color:#0f1117;border:none;border-radius:8px;padding:8px 13px;font-size:16px;cursor:pointer;font-weight:700;transition:background .2s;}
+.btn-add:hover{background:#93c5fd;}
+.student-list{display:flex;flex-direction:column;gap:4px;max-height:200px;overflow-y:auto;margin-top:8px;}
+.student-item{
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:6px 9px;font-size:13px;transition:border-color .15s;
+}
+.student-item:hover{border-color:var(--accent3);}
+.student-item.front-fixed{border-color:var(--fixed-color);background:var(--fixed-bg);}
+.student-item.seat-pinned{border-color:var(--pinned-color);background:var(--pinned-bg);}
+.student-item-left{display:flex;align-items:center;gap:7px;overflow:hidden;}
+.student-num{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);min-width:18px;}
+.student-name{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.student-badge{font-size:10px;padding:1px 5px;border-radius:4px;white-space:nowrap;}
+.badge-front{background:var(--fixed-bg);color:var(--fixed-color);border:1px solid var(--fixed-color);}
+.badge-pin{background:var(--pinned-bg);color:var(--pinned-color);border:1px solid var(--pinned-color);}
+.student-item-right{display:flex;gap:3px;flex-shrink:0;}
+.btn-sfix,.btn-del{background:none;border:none;cursor:pointer;font-size:13px;padding:2px 4px;border-radius:4px;transition:background .15s;}
+.btn-sfix{color:var(--accent2);}
+.btn-sfix:hover{background:rgba(245,158,11,.15);}
+.btn-sfix.active{color:var(--fixed-color);}
+.btn-del{color:var(--text-muted);}
+.btn-del:hover{background:rgba(248,113,113,.15);color:var(--danger);}
+
+.file-drop-zone{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  border:1.5px dashed var(--border);border-radius:10px;
+  padding:12px 10px;margin:8px 0 6px;
+  cursor:pointer;transition:border-color .2s,background .2s;
+  background:transparent;
+}
+.file-drop-zone:hover,.file-drop-zone.drag-over{
+  border-color:var(--accent3);background:rgba(96,165,250,.06);
+}
+.file-drop-zone.drag-over{ border-color:var(--accent); background:rgba(74,222,128,.07); }
+.file-drop-icon{ font-size:22px; line-height:1; }
+.file-drop-text{ font-size:13px; font-weight:600; color:var(--text); }
+.file-drop-sub{ font-size:10px; color:var(--text-muted); }
+
+.bulk-toggle{font-size:12px;color:var(--accent3);cursor:pointer;background:none;border:none;font-family:inherit;text-decoration:underline;text-underline-offset:2px;margin-bottom:6px;display:block;}
+.bulk-area{display:none;flex-direction:column;gap:6px;}
+.bulk-area.open{display:flex;}
+.bulk-area textarea{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:9px 11px;font-size:12px;font-family:inherit;outline:none;resize:vertical;min-height:70px;transition:border-color .2s;}
+.bulk-area textarea:focus{border-color:var(--accent3);}
+
+.condition-row{display:flex;gap:7px;align-items:flex-end;margin-bottom:7px;}
+.condition-row select{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 9px;font-size:12px;font-family:inherit;outline:none;flex:1;}
+.condition-row select:focus{border-color:var(--accent3);}
+.btn-add-cond{background:var(--surface2);border:1px solid var(--border);color:var(--accent2);border-radius:8px;padding:7px 12px;font-size:16px;cursor:pointer;transition:background .2s;}
+.btn-add-cond:hover{background:rgba(245,158,11,.1);}
+.condition-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:3px;}
+.chip{display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 9px;font-size:11px;}
+.chip.sep{border-color:#f87171;color:#f87171;}
+.chip.near{border-color:var(--accent3);color:var(--accent3);}
+.chip-x{cursor:pointer;color:var(--text-muted);font-size:13px;}
+.chip-x:hover{color:var(--danger);}
+
+.btn-primary{background:var(--accent);color:#0f1117;border:none;border-radius:10px;padding:11px 18px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;width:100%;transition:background .2s,transform .1s;}
+.btn-primary:hover{background:#86efac;}
+.btn-primary:active{transform:scale(.98);}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:10px;padding:9px 18px;font-size:13px;font-weight:500;font-family:inherit;cursor:pointer;width:100%;transition:background .2s;}
+.btn-secondary:hover{background:var(--border);}
+.divider{height:1px;background:var(--border);}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+.main-toolbar{
+  padding:12px 20px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  background:var(--surface);gap:12px;flex-wrap:wrap;flex-shrink:0;
+}
+.toolbar-title{font-size:14px;font-weight:700;flex-shrink:0;}
+.mode-tabs{display:flex;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;}
+.mode-tab{background:none;border:none;color:var(--text-muted);padding:6px 11px;border-radius:7px;font-size:12px;font-family:inherit;cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;}
+.mode-tab:hover{color:var(--text);}
+.mode-tab.active{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.3);}
+.mode-tab.active.mode-block{color:var(--danger);}
+.mode-tab.active.mode-pin{color:var(--pinned-color);}
+.toolbar-actions{display:flex;gap:6px;}
+.btn-icon{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit;transition:background .2s;}
+.btn-icon:hover{background:var(--border);}
+
+.pin-panel{padding:8px 20px;border-bottom:1px solid var(--border);background:rgba(167,139,250,0.06);display:none;align-items:center;gap:10px;flex-shrink:0;}
+.pin-panel.visible{display:flex;}
+.pin-panel label{font-size:12px;color:var(--pinned-color);white-space:nowrap;}
+.pin-panel select{background:var(--surface2);border:1px solid var(--pinned-color);border-radius:8px;color:var(--text);padding:6px 10px;font-size:13px;font-family:inherit;outline:none;}
+.pin-panel-hint{font-size:11px;color:var(--text-muted);}
+
+.block-hint{padding:8px 20px;border-bottom:1px solid var(--border);background:rgba(248,113,113,0.05);display:none;align-items:center;gap:8px;flex-shrink:0;}
+.block-hint.visible{display:flex;}
+.block-hint span{font-size:12px;color:var(--danger);}
+
+/* ── CLASSROOM AREA ── */
+.classroom-area{flex:1;overflow:auto;padding:28px 20px;display:flex;flex-direction:column;align-items:center;}
+.desk-label{
+  background:var(--surface2);border:2px solid var(--border);border-radius:8px;
+  padding:7px 44px;font-size:12px;font-weight:700;letter-spacing:4px;
+  color:var(--text-muted);margin-bottom:28px;text-transform:uppercase;
+  transition:background .3s,border-color .3s,color .3s;
+}
+/* flipped — 교탁이 아래로, 행 순서는 JS가 역순 처리 */
+.classroom-area.flipped { flex-direction: column-reverse; }
+.classroom-area.flipped .desk-label { margin-bottom: 0; margin-top: 28px; }
+
+/* flip button active state */
+.btn-icon.flip-active{
+  border-color:var(--accent3);color:var(--accent3);
+  background:rgba(96,165,250,.08);
+}
+
+/* ── RESPONSIVE SEAT GRID ── */
+:root{ --cell-size: 82px; }   /* controlled by JS zoom buttons */
+
+#seat-grid{
+  display:grid;
+  gap:calc(var(--cell-size) * 0.10);
+  justify-content:center;
+  transition:gap .2s;
+}
+.seat-cell{
+  width:var(--cell-size);
+  height:calc(var(--cell-size) * 0.78);
+  background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:calc(var(--cell-size) * 0.12);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;
+  transition:border-color .15s,background .15s,transform .12s,width .2s,height .2s;
+  cursor:default;
+}
+body.mode-block .seat-cell{cursor:crosshair;}
+body.mode-pin .seat-cell{cursor:cell;}
+.seat-cell:hover{transform:scale(1.05);z-index:2;}
+body.mode-block .seat-cell:not(.blocked):hover{border-color:var(--danger);background:rgba(248,113,113,.08);}
+body.mode-block .seat-cell.blocked:hover{border-color:var(--accent3);}
+body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);background:rgba(167,139,250,.08);}
+
+.seat-cell.blocked{background:var(--blocked-bg)!important;border-color:var(--blocked-color)!important;border-style:dashed!important;}
+.blocked-x{font-size:calc(var(--cell-size) * 0.27);color:var(--blocked-color);line-height:1;user-select:none;}
+.seat-cell.occupied{border-color:var(--accent3);background:rgba(96,165,250,.07);}
+.seat-cell.front-fixed-seat{border-color:var(--fixed-color)!important;background:var(--fixed-bg)!important;}
+.seat-cell.pinned-seat{border-color:var(--pinned-color)!important;background:var(--pinned-bg)!important;}
+
+.seat-num{font-family:var(--font-mono);font-size:calc(var(--cell-size) * 0.11);color:var(--text-muted);position:absolute;top:4px;left:5px;user-select:none;}
+.seat-name{font-size:calc(var(--cell-size) * 0.155);font-weight:500;text-align:center;line-height:1.3;padding:0 4px;user-select:none;}
+.seat-corner-icon{font-size:calc(var(--cell-size) * 0.11);position:absolute;top:3px;right:4px;user-select:none;}
+
+/* zoom buttons */
+.zoom-controls{display:flex;align-items:center;gap:4px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:3px 6px;}
+.zoom-btn{background:none;border:none;color:var(--text-muted);font-size:16px;cursor:pointer;padding:2px 5px;border-radius:5px;line-height:1;transition:background .15s,color .15s;font-family:inherit;}
+.zoom-btn:hover{background:var(--border);color:var(--text);}
+.zoom-btn:disabled{opacity:.3;cursor:default;}
+.zoom-label{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);min-width:32px;text-align:center;}
+
+@keyframes pop-in{
+  0%{opacity:0;transform:scale(.6) rotate(-5deg);}
+  70%{transform:scale(1.1) rotate(1deg);}
+  100%{opacity:1;transform:scale(1) rotate(0);}
+}
+.seat-cell.animate{animation:pop-in .32s ease forwards;}
+
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;opacity:.3;margin-top:60px;}
+.empty-state .big-icon{font-size:56px;}
+.empty-state p{font-size:14px;}
+
+.legend{display:none;gap:14px;flex-wrap:wrap;padding:10px 20px;border-top:1px solid var(--border);flex-shrink:0;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);}
+.legend-dot{width:12px;height:12px;border-radius:3px;border:1.5px solid;flex-shrink:0;}
+
+.history-panel{padding:10px 18px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+.history-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+.history-label{font-size:10px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;}
+.history-list{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;}
+.history-tag{
+  white-space:nowrap;background:var(--surface2);border:1px solid var(--border);
+  border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;
+  transition:border-color .15s;flex-shrink:0;display:flex;align-items:center;gap:6px;
+}
+.history-tag:hover{border-color:var(--accent3);color:var(--accent3);}
+.history-tag .log-label{font-weight:600;}
+.history-tag .log-meta{color:var(--text-muted);font-size:10px;}
+.history-tag .log-penalty{
+  font-size:10px;padding:1px 5px;border-radius:4px;
+  background:rgba(74,222,128,.12);color:var(--accent);border:1px solid rgba(74,222,128,.2);
+}
+.history-tag .log-del{color:var(--text-muted);margin-left:2px;font-size:13px;}
+.history-tag .log-del:hover{color:var(--danger);}
+
+/* ── REVEAL OVERLAY ── */
+#reveal-overlay{
+  position:fixed;inset:0;z-index:1000;
+  background:#0a0c12;
+  display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:32px;
+  overflow:hidden;
+}
+#reveal-overlay.active{ display:flex; }
+
+/* animated grid bg */
+#reveal-overlay::before{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(74,222,128,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(74,222,128,.04) 1px,transparent 1px);
+  background-size:48px 48px;
+  animation:grid-scroll 4s linear infinite;
+}
+@keyframes grid-scroll{from{background-position:0 0;}to{background-position:48px 48px;}}
+
+/* vignette */
+#reveal-overlay::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at center, transparent 40%, #0a0c12 100%);
+  pointer-events:none;
+}
+
+.overlay-content{
+  position:relative;z-index:1;
+  display:flex;flex-direction:column;align-items:center;gap:28px;
+}
+
+.overlay-label{
+  font-size:13px;letter-spacing:6px;text-transform:uppercase;
+  color:var(--text-muted);font-family:var(--font-mono);
+}
+
+/* BIG number */
+.overlay-num{
+  font-family:var(--font-mono);
+  font-size:clamp(120px,22vw,220px);
+  font-weight:700;
+  line-height:1;
+  color:var(--accent);
+  text-shadow:0 0 60px rgba(74,222,128,.5), 0 0 120px rgba(74,222,128,.2);
+  transition:opacity .12s;
+  user-select:none;
+}
+.overlay-num.flash{
+  animation:num-pop .28s cubic-bezier(.2,1.4,.4,1) forwards;
+}
+@keyframes num-pop{
+  0%{transform:scale(.6);opacity:0;}
+  60%{transform:scale(1.1);}
+  100%{transform:scale(1);opacity:1;}
+}
+
+.overlay-bar-wrap{
+  width:min(320px,60vw);height:4px;
+  background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;
+}
+.overlay-bar{
+  height:100%;background:var(--accent);border-radius:2px;
+  width:100%;transform-origin:left;
+}
+
+.overlay-sub{
+  font-size:13px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;font-family:var(--font-mono);
+}
+
+/* toast */
+#toast{position:fixed;bottom:28px;right:28px;background:var(--accent);color:#0f1117;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;opacity:0;transition:opacity .3s;pointer-events:none;z-index:2000;}
+#toast.show{opacity:1;}
+
+@media print{
+  body{background:#fff;color:#000;}
+  header,.sidebar-wrap,.sidebar-toggle,.sidebar,.main-toolbar,.pin-panel,.block-hint,.history-panel,.legend,#reveal-overlay{display:none!important;}
+  .app{display:block;}
+  .main{overflow:visible;}
+  .classroom-area{padding:16px;}
+  .desk-label{color:#333;border-color:#999;background:#f5f5f5;letter-spacing:2px;}
+  .seat-cell{border-color:#aaa!important;background:#f9f9f9!important;color:#000;}
+  .seat-cell.blocked{background:#e5e5e5!important;border-style:dashed;}
+  .seat-num,.seat-name{color:#000;}
+  .classroom-area.flipped .desk-label{border-color:#60a5fa;color:#1d4ed8;}
+}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+</style>
+</head>
+<body class="mode-normal">
+
+<!-- REVEAL OVERLAY -->
+<div id="reveal-overlay">
+  <div class="overlay-content">
+    <div class="overlay-label">자리 배정 중</div>
+    <div class="overlay-num" id="overlay-num">5</div>
+    <div class="overlay-bar-wrap">
+      <div class="overlay-bar" id="overlay-bar"></div>
+    </div>
+    <div class="overlay-sub">잠시 후 공개됩니다</div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">SEAT<span>/</span>MAP</div>
+  <span style="font-size:12px;color:var(--text-muted);margin-left:6px;">교실 자리 배정 시스템</span>
+</header>
+
+<div class="app">
+  <!-- SIDEBAR WRAP -->
+  <div class="sidebar-wrap" id="sidebar-wrap">
+  <aside class="sidebar" id="sidebar">
+
+    <div>
+      <div class="section-label">📐 교실 설정</div>
+      <div class="inline-row">
+        <div class="form-row"><label>행 (앞뒤)</label><input type="number" id="rows" value="5" min="1" max="12" onchange="buildGrid()"></div>
+        <div class="form-row"><label>열 (좌우)</label><input type="number" id="cols" value="6" min="1" max="12" onchange="buildGrid()"></div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="section-label">🧑‍🎓 학생 목록 <span id="student-count" style="color:var(--accent);font-size:11px;"></span></div>
+      <div class="student-input-area">
+        <input type="text" id="student-input" placeholder="이름 입력 후 Enter" onkeydown="if(event.key==='Enter') addStudent()">
+        <button class="btn-add" onclick="addStudent()">+</button>
+      </div>
+
+      <!-- 파일 불러오기 드롭존 -->
+      <div class="file-drop-zone" id="file-drop-zone" onclick="document.getElementById('file-input').click()">
+        <input type="file" id="file-input" accept=".txt,.csv,.xlsx,.xls" style="display:none" onchange="handleFileInput(this)">
+        <span class="file-drop-icon">📂</span>
+        <span class="file-drop-text">파일 불러오기</span>
+        <span class="file-drop-sub">txt · csv · xlsx &nbsp;|&nbsp; 드래그도 가능</span>
+      </div>
+
+      <button class="bulk-toggle" onclick="toggleBulk()">📋 직접 여러 명 입력</button>
+      <div class="bulk-area" id="bulk-area">
+        <textarea id="bulk-input" placeholder="이름을 줄바꿈으로 구분&#10;김민준&#10;이서연&#10;박지호"></textarea>
+        <button class="btn-secondary" style="padding:7px" onclick="addBulk()">추가</button>
+      </div>
+      <div class="student-list" id="student-list"></div>
+      <p style="font-size:10px;color:var(--text-muted);margin-top:5px;">📌 = 앞자리 고정 &nbsp;|&nbsp; 📍 = 지정석 (그리드에서 설정)</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <div>
+      <div class="section-label">⚙️ 특별 조건</div>
+      <div class="condition-row">
+        <select id="cond-type">
+          <option value="sep">떨어뜨리기 🚫</option>
+          <option value="near">붙이기 💛</option>
+        </select>
+      </div>
+      <div class="condition-row">
+        <select id="cond-a"></select>
+        <span style="color:var(--text-muted);font-size:11px;padding-bottom:7px">↔</span>
+        <select id="cond-b"></select>
+        <button class="btn-add-cond" onclick="addCondition()">+</button>
+      </div>
+      <div class="condition-chips" id="condition-chips"></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div style="display:flex;flex-direction:column;gap:7px;">
+      <button class="btn-primary" onclick="assign()">🎲 랜덤 자리 배정</button>
+      <button class="btn-secondary" onclick="resetSeats()">↺ 배정 초기화</button>
+      <button class="btn-secondary" onclick="clearAll()">🗑 전체 초기화</button>
+    </div>
+  </aside>
+  </div><!-- /sidebar-wrap -->
+
+  <!-- SIDEBAR TOGGLE (sibling of wrap, always visible) -->
+  <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="사이드바 열기/닫기">
+    <span class="arrow">◀</span>
+  </button>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="main-toolbar">
+      <div class="toolbar-title" id="toolbar-title">자리 배치도</div>
+      <div class="mode-tabs">
+        <button class="mode-tab active mode-normal" id="tab-normal" onclick="setMode('normal')">👆 일반</button>
+        <button class="mode-tab mode-block" id="tab-block" onclick="setMode('block')">✖ 빈자리 지정</button>
+        <button class="mode-tab mode-pin" id="tab-pin" onclick="setMode('pin')">📍 지정석 설정</button>
+      </div>
+      <div class="toolbar-actions">
+        <div class="zoom-controls">
+          <button class="zoom-btn" id="zoom-out" onclick="zoomGrid(-1)" title="축소">🔍−</button>
+          <span class="zoom-label" id="zoom-label">100%</span>
+          <button class="zoom-btn" id="zoom-in" onclick="zoomGrid(+1)" title="확대">🔍+</button>
+        </div>
+        <button class="btn-icon" id="flip-btn" onclick="flipGrid()" title="교사/학생 시점 전환">⇅ 뒤집기</button>
+        <button class="btn-icon" onclick="saveLog()">💾 기록</button>
+        <button class="btn-icon" onclick="window.print()">🖨 인쇄</button>
+      </div>
+    </div>
+
+    <div class="block-hint" id="block-hint">
+      <span>✖ 빈자리 지정 모드 — 자리 클릭 시 비활성(✕) / 다시 클릭 시 해제</span>
+    </div>
+
+    <div class="pin-panel" id="pin-panel">
+      <label>📍 지정석 설정 —</label>
+      <select id="pin-student-select"><option value="">학생 선택...</option></select>
+      <span class="pin-panel-hint">학생 선택 후 원하는 자리 클릭 | 같은 자리 재클릭 시 해제</span>
+    </div>
+
+    <div class="classroom-area" id="classroom-area">
+      <div class="desk-label" id="desk-label">🏫 교탁</div>
+      <div id="seat-grid"></div>
+      <div class="empty-state" id="empty-state">
+        <div class="big-icon">🏫</div>
+        <p>학생을 추가하고 자리 배정을 눌러주세요</p>
+      </div>
+    </div>
+
+    <div class="legend" id="legend">
+      <div class="legend-item"><div class="legend-dot" style="border-color:var(--accent3);background:rgba(96,165,250,.07)"></div>일반 배정</div>
+      <div class="legend-item"><div class="legend-dot" style="border-color:var(--fixed-color);background:var(--fixed-bg)"></div>앞자리 고정</div>
+      <div class="legend-item"><div class="legend-dot" style="border-color:var(--pinned-color);background:var(--pinned-bg)"></div>지정석</div>
+      <div class="legend-item"><div class="legend-dot" style="border-color:var(--blocked-color);background:var(--blocked-bg);border-style:dashed"></div>빈자리</div>
+    </div>
+
+    <div class="history-panel">
+      <div class="history-panel-header">
+        <div class="history-label">📅 배치 기록 <span id="log-count" style="color:var(--accent);font-size:10px;margin-left:4px;"></span></div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn-icon" style="font-size:11px;padding:4px 9px;" onclick="exportLog()">⬇ 기록 저장</button>
+          <button class="btn-icon" style="font-size:11px;padding:4px 9px;" onclick="document.getElementById('log-import').click()">⬆ 기록 불러오기</button>
+          <input type="file" id="log-import" accept=".json" style="display:none" onchange="importLog(this)">
+        </div>
+      </div>
+      <div class="history-list" id="history-list">
+        <span style="font-size:11px;color:var(--text-muted);">아직 저장된 기록이 없습니다 — 배정 후 💾로 기록하세요</span>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── STATE ──
+let students=[], conditions=[], blockedSeats=new Set(), pinnedSeats={};
+let currentAssignment=null, history=[], editMode='normal';
+// seatLog: array of { label, date, rows, cols, seats: [{name, r, c}] }
+let seatLog=[];
+
+// ── SIDEBAR TOGGLE ──
+let sidebarOpen = true;
+function toggleSidebar(){
+  sidebarOpen = !sidebarOpen;
+  document.getElementById('sidebar-wrap').classList.toggle('collapsed', !sidebarOpen);
+  const arrow = document.querySelector('.sidebar-toggle .arrow');
+  arrow.textContent = sidebarOpen ? '◀' : '▶';
+}
+
+// ── ZOOM ──
+const CELL_SIZES = [52, 62, 72, 82, 96, 112, 130];
+let zoomIdx = 3; // default = 82px
+
+function applyZoom(){
+  const size = CELL_SIZES[zoomIdx];
+  document.documentElement.style.setProperty('--cell-size', size + 'px');
+  document.getElementById('zoom-label').textContent = Math.round((size/82)*100) + '%';
+  document.getElementById('zoom-out').disabled = zoomIdx === 0;
+  document.getElementById('zoom-in').disabled  = zoomIdx === CELL_SIZES.length - 1;
+}
+
+function zoomGrid(dir){
+  zoomIdx = Math.max(0, Math.min(CELL_SIZES.length - 1, zoomIdx + dir));
+  applyZoom();
+}
+
+// ── FLIP (위아래 역순) ──
+let isFlipped = false;
+function flipGrid(){
+  isFlipped = !isFlipped;
+  const btn = document.getElementById('flip-btn');
+  btn.classList.toggle('flip-active', isFlipped);
+  document.getElementById('classroom-area').classList.toggle('flipped', isFlipped);
+
+  const gridEl = document.getElementById('seat-grid');
+  const rows = +document.getElementById('rows').value;
+  const cols  = +document.getElementById('cols').value;
+  const cells = Array.from(gridEl.children);
+  const rowGroups = [];
+  for(let r = 0; r < rows; r++)
+    rowGroups.push(cells.slice(r * cols, (r + 1) * cols));
+  (isFlipped ? [...rowGroups].reverse() : rowGroups)
+    .forEach(row => row.forEach(cell => gridEl.appendChild(cell)));
+}
+
+// ── GRID ──
+function buildGrid(){
+  const rows=+document.getElementById('rows').value;
+  const cols=+document.getElementById('cols').value;
+  const grid=document.getElementById('seat-grid');
+  grid.style.gridTemplateColumns=`repeat(${cols}, var(--cell-size))`;
+  grid.style.width='';
+  grid.style.maxWidth='';
+  grid.innerHTML='';
+  // prune out-of-range refs
+  [...blockedSeats].forEach(k=>{const[r,c]=k.split('-').map(Number);if(r>=rows||c>=cols)blockedSeats.delete(k);});
+  Object.keys(pinnedSeats).forEach(k=>{const[r,c]=k.split('-').map(Number);if(r>=rows||c>=cols)delete pinnedSeats[k];});
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const key=`${r}-${c}`;
+      const cell=document.createElement('div');
+      cell.className='seat-cell'; cell.id=`seat-${key}`;
+      cell.dataset.r=r; cell.dataset.c=c;
+      cell.addEventListener('click',()=>handleCellClick(r,c));
+      const num=document.createElement('span');
+      num.className='seat-num'; num.textContent=`${r+1}-${c+1}`;
+      cell.appendChild(num);
+      if(blockedSeats.has(key)) applyBlockedStyle(cell);
+      else if(pinnedSeats[key]) applyPinnedStyle(cell,pinnedSeats[key]);
+      grid.appendChild(cell);
+    }
+  }
+}
+
+function handleCellClick(r,c){
+  if(editMode==='block') toggleBlocked(r,c);
+  else if(editMode==='pin'){
+    const sel=document.getElementById('pin-student-select').value;
+    if(!sel){showToast('먼저 학생을 선택하세요');return;}
+    togglePinned(r,c,sel);
+  }
+}
+
+// ── BLOCKED ──
+function toggleBlocked(r,c){
+  const key=`${r}-${c}`, cell=document.getElementById(`seat-${key}`);
+  if(!cell) return;
+  if(pinnedSeats[key]){showToast('지정석은 빈자리로 만들 수 없어요');return;}
+  if(blockedSeats.has(key)){
+    blockedSeats.delete(key);
+    cell.className='seat-cell'; cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span>`;
+  } else {
+    blockedSeats.add(key);
+    if(currentAssignment) currentAssignment[r][c]=null;
+    applyBlockedStyle(cell);
+  }
+}
+function applyBlockedStyle(cell){
+  const r=+cell.dataset.r,c=+cell.dataset.c;
+  cell.className='seat-cell blocked';
+  cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span><span class="blocked-x">✕</span>`;
+}
+
+// ── PINNED ──
+function togglePinned(r,c,studentName){
+  const key=`${r}-${c}`, cell=document.getElementById(`seat-${key}`);
+  if(!cell) return;
+  if(blockedSeats.has(key)){showToast('빈자리로 지정된 자리입니다');return;}
+  if(pinnedSeats[key]===studentName){
+    delete pinnedSeats[key]; cell.className='seat-cell';
+    cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span>`;
+    renderStudentList(); showToast('📍 지정석 해제'); return;
+  }
+  Object.keys(pinnedSeats).forEach(k=>{
+    if(pinnedSeats[k]===studentName){
+      delete pinnedSeats[k];
+      const[pr,pc]=k.split('-'), prev=document.getElementById(`seat-${k}`);
+      if(prev){prev.className='seat-cell';prev.innerHTML=`<span class="seat-num">${+pr+1}-${+pc+1}</span>`;}
+    }
+  });
+  if(pinnedSeats[key]) showToast(`⚠ ${pinnedSeats[key]}의 지정석이 해제됐어요`);
+  pinnedSeats[key]=studentName;
+  applyPinnedStyle(cell,studentName);
+  renderStudentList(); showToast(`📍 ${studentName} → ${r+1}행 ${c+1}열 지정`);
+}
+function applyPinnedStyle(cell,studentName){
+  const r=+cell.dataset.r,c=+cell.dataset.c;
+  cell.className='seat-cell pinned-seat';
+  cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span><span class="seat-corner-icon" style="color:var(--pinned-color)">📍</span><div class="seat-name" style="color:var(--pinned-color);font-size:11px">${studentName}</div>`;
+}
+function removePinnedForStudent(name){
+  Object.keys(pinnedSeats).forEach(k=>{
+    if(pinnedSeats[k]===name){
+      delete pinnedSeats[k];
+      const[r,c]=k.split('-'), cell=document.getElementById(`seat-${k}`);
+      if(cell){cell.className='seat-cell';cell.innerHTML=`<span class="seat-num">${+r+1}-${+c+1}</span>`;}
+    }
+  });
+}
+
+// ── MODE ──
+function setMode(mode){
+  editMode=mode; document.body.className=`mode-${mode}`;
+  ['normal','block','pin'].forEach(m=>document.getElementById(`tab-${m}`).classList.toggle('active',m===mode));
+  document.getElementById('pin-panel').classList.toggle('visible',mode==='pin');
+  document.getElementById('block-hint').classList.toggle('visible',mode==='block');
+}
+
+// ── FILE IMPORT ──
+(function setupFileDrop(){
+  const zone = document.getElementById('file-drop-zone');
+  zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', ()=>zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e=>{
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if(file) processFile(file);
+  });
+})();
+
+function handleFileInput(input){
+  const file = input.files[0];
+  if(file) processFile(file);
+  input.value = ''; // reset so same file can be re-imported
+}
+
+function processFile(file){
+  const ext = file.name.split('.').pop().toLowerCase();
+  if(ext === 'xlsx' || ext === 'xls'){
+    importXlsx(file);
+  } else {
+    // txt / csv — read as text
+    const reader = new FileReader();
+    reader.onload = e => importNamesFromText(e.target.result, file.name);
+    reader.readAsText(file, 'utf-8');
+  }
+}
+
+function importNamesFromText(text, filename){
+  // support: newline-separated, comma-separated, tab-separated
+  // also handle CSV with quoted fields
+  let names = [];
+  const ext = (filename||'').split('.').pop().toLowerCase();
+
+  if(ext === 'csv'){
+    // parse CSV — split by lines, then by first comma-or-tab delimiter
+    const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    lines.forEach(line=>{
+      // take only the first cell of each row (name column)
+      const cell = line.split(/,|\t/)[0].replace(/^"|"$/g,'').trim();
+      if(cell) names.push(cell);
+    });
+  } else {
+    // plain text: one name per line
+    names = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  }
+  addNamesArray(names, filename);
+}
+
+function importXlsx(file){
+  const reader = new FileReader();
+  reader.onload = e => parseXlsxBuffer(e.target.result, file.name);
+  reader.readAsArrayBuffer(file);
+}
+
+// ── 순수 JS xlsx 파서 (외부 라이브러리 없음) ──
+// xlsx = ZIP 파일. ZIP 내부의 xl/sharedStrings.xml 에서 문자열을 추출.
+function parseXlsxBuffer(buffer, filename){
+  try {
+    const bytes = new Uint8Array(buffer);
+
+    // ZIP 로컬 파일 헤더 시그니처: PK\x03\x04
+    const entries = readZipEntries(bytes);
+
+    // sharedStrings.xml 찾기
+    const ssEntry = entries.find(e =>
+      e.name === 'xl/sharedStrings.xml' ||
+      e.name.endsWith('sharedStrings.xml')
+    );
+    // sheet1.xml 찾기 (fallback: inline strings)
+    const sheetEntry = entries.find(e =>
+      e.name === 'xl/worksheets/sheet1.xml' ||
+      e.name.match(/worksheets\/sheet\d+\.xml/)
+    );
+
+    let names = [];
+
+    if(ssEntry){
+      // sharedStrings에서 <t> 태그 값 추출
+      const xml = inflateEntry(bytes, ssEntry);
+      const matches = xml.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g);
+      const strings = [...matches].map(m => decodeXmlEntities(m[1].trim()));
+      // sheet1에서 첫 번째 열(A열) 셀만 수집
+      if(sheetEntry){
+        const sheetXml = inflateEntry(bytes, sheetEntry);
+        // A열 셀: r="A숫자"
+        const cellMatches = sheetXml.matchAll(/<c r="A\d+"[^>]*>([\s\S]*?)<\/c>/g);
+        for(const cm of cellMatches){
+          const cellXml = cm[1];
+          // t="s" → shared string index
+          const tAttr = cm[0].match(/t="([^"]*)"/);
+          const vMatch = cellXml.match(/<v>(\d+)<\/v>/);
+          if(tAttr && tAttr[1]==='s' && vMatch){
+            const idx = parseInt(vMatch[1]);
+            if(strings[idx]) names.push(strings[idx]);
+          } else {
+            // inline string
+            const inlineMatch = cellXml.match(/<t[^>]*>([\s\S]*?)<\/t>/);
+            if(inlineMatch) names.push(decodeXmlEntities(inlineMatch[1].trim()));
+          }
+        }
+      } else {
+        // sheet 없으면 sharedStrings 전체를 이름으로 사용
+        names = strings.filter(Boolean);
+      }
+    } else if(sheetEntry){
+      // sharedStrings 없는 경우 (모든 값이 inline)
+      const sheetXml = inflateEntry(bytes, sheetEntry);
+      const cellMatches = sheetXml.matchAll(/<c r="A\d+"[^>]*>([\s\S]*?)<\/c>/g);
+      for(const cm of cellMatches){
+        const inlineMatch = cm[1].match(/<t[^>]*>([\s\S]*?)<\/t>/);
+        if(inlineMatch) names.push(decodeXmlEntities(inlineMatch[1].trim()));
+      }
+    } else {
+      showToast('xlsx 구조를 읽을 수 없어요. csv나 txt를 사용해 주세요.');
+      return;
+    }
+
+    addNamesArray(names.filter(Boolean), filename);
+  } catch(err){
+    showToast('xlsx 읽기 실패: ' + err.message);
+    console.error(err);
+  }
+}
+
+function readZipEntries(bytes){
+  const entries = [];
+  let i = 0;
+  while(i < bytes.length - 4){
+    // Local file header signature
+    if(bytes[i]===0x50 && bytes[i+1]===0x4B && bytes[i+2]===0x03 && bytes[i+3]===0x04){
+      const compression  = bytes[i+8]  | (bytes[i+9]  << 8);
+      const compSize     = bytes[i+18] | (bytes[i+19]<<8) | (bytes[i+20]<<16) | (bytes[i+21]<<24);
+      const uncompSize   = bytes[i+22] | (bytes[i+23]<<8) | (bytes[i+24]<<16) | (bytes[i+25]<<24);
+      const nameLen      = bytes[i+26] | (bytes[i+27]<<8);
+      const extraLen     = bytes[i+28] | (bytes[i+29]<<8);
+      const nameBytes    = bytes.slice(i+30, i+30+nameLen);
+      const name         = new TextDecoder().decode(nameBytes);
+      const dataStart    = i + 30 + nameLen + extraLen;
+      entries.push({ name, compression, compSize, uncompSize, dataStart });
+      i = dataStart + compSize;
+    } else { i++; }
+  }
+  return entries;
+}
+
+function inflateEntry(bytes, entry){
+  const raw = bytes.slice(entry.dataStart, entry.dataStart + entry.compSize);
+  if(entry.compression === 0){
+    // stored (no compression)
+    return new TextDecoder().decode(raw);
+  } else if(entry.compression === 8){
+    // deflate — use DecompressionStream (supported in all modern browsers)
+    const ds = new DecompressionStream('deflate-raw');
+    const writer = ds.writable.getWriter();
+    const reader = ds.readable.getReader();
+    writer.write(raw); writer.close();
+    // sync-like read via concatenation
+    const chunks = [];
+    let done = false;
+    // We need synchronous result — fall back to a small sync inflate
+    // Since DecompressionStream is async, use synchronous fallback for small files
+    return inflateSyncFallback(raw);
+  }
+  return '';
+}
+
+// Minimal synchronous DEFLATE using DecompressionStream via SharedArrayBuffer trick
+// Falls back to showing error for very large files
+function inflateSyncFallback(deflated){
+  // Use XMLHttpRequest trick: create a gzip blob and decode
+  // Prepend minimal gzip header (ID1 ID2 CM FLG MTIME XFL OS)
+  const gzip = new Uint8Array(10 + deflated.length + 8);
+  gzip[0]=0x1f; gzip[1]=0x8b; gzip[2]=0x08; gzip[3]=0x00;
+  // MTIME=0, XFL=0, OS=255
+  gzip[9]=0xff;
+  gzip.set(deflated, 10);
+  // CRC32 and size (we'll leave as 0 — browsers tolerate this)
+  // Try via blob + synchronous XHR
+  try {
+    const blob = new Blob([gzip], {type:'application/gzip'});
+    const url  = URL.createObjectURL(blob);
+    const xhr  = new XMLHttpRequest();
+    xhr.open('GET', url, false); // synchronous
+    xhr.overrideMimeType('text/plain; charset=x-user-defined');
+    xhr.send();
+    URL.revokeObjectURL(url);
+    // Convert latin1 response to utf-8 bytes then decode
+    const res = xhr.responseText;
+    const arr = new Uint8Array(res.length);
+    for(let i=0;i<res.length;i++) arr[i]=res.charCodeAt(i)&0xff;
+    return new TextDecoder('utf-8').decode(arr);
+  } catch(e){
+    throw new Error('xlsx 압축 해제 실패 (브라우저가 지원하지 않습니다). csv/txt를 사용해 주세요.');
+  }
+}
+
+function decodeXmlEntities(s){
+  return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+}
+
+function addNamesArray(names, filename){
+  if(!names.length){ showToast('이름을 찾을 수 없어요'); return; }
+  const added = names.filter(name=>{
+    if(students.find(s=>s.name===name)) return false;
+    students.push({name, frontFixed:false}); return true;
+  });
+  const skipped = names.length - added.length;
+  renderStudentList(); updateCondSelects(); updatePinSelect();
+  const msg = skipped > 0
+    ? `📂 ${added.length}명 추가됨 (중복 ${skipped}명 제외)`
+    : `📂 ${added.length}명 추가됨`;
+  showToast(msg);
+}
+
+// ── STUDENTS ──
+function addStudent(){
+  const input=document.getElementById('student-input'), name=input.value.trim();
+  if(!name) return;
+  if(students.find(s=>s.name===name)){showToast('이미 있는 이름입니다');return;}
+  students.push({name,frontFixed:false}); input.value='';
+  renderStudentList(); updateCondSelects(); updatePinSelect();
+  showToast(`${name} 추가됨`);
+}
+function addBulk(){
+  const ta=document.getElementById('bulk-input');
+  const lines=ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const added=lines.filter(name=>{if(students.find(s=>s.name===name))return false;students.push({name,frontFixed:false});return true;});
+  ta.value=''; renderStudentList(); updateCondSelects(); updatePinSelect();
+  showToast(`${added.length}명 추가됨`);
+}
+function toggleBulk(){document.getElementById('bulk-area').classList.toggle('open');}
+function removeStudent(i){
+  const name=students[i].name;
+  conditions=conditions.filter(c=>c.a!==name&&c.b!==name);
+  removePinnedForStudent(name); students.splice(i,1);
+  renderStudentList(); updateCondSelects(); updatePinSelect(); renderCondChips();
+}
+function toggleFrontFixed(i){students[i].frontFixed=!students[i].frontFixed; renderStudentList();}
+function renderStudentList(){
+  const list=document.getElementById('student-list');
+  document.getElementById('student-count').textContent=`(${students.length}명)`;
+  list.innerHTML='';
+  students.forEach((s,i)=>{
+    const pinKey=Object.keys(pinnedSeats).find(k=>pinnedSeats[k]===s.name);
+    const pinLabel=pinKey?`${+pinKey.split('-')[0]+1}행${+pinKey.split('-')[1]+1}열`:null;
+    const cls=pinKey?'student-item seat-pinned':(s.frontFixed?'student-item front-fixed':'student-item');
+    const div=document.createElement('div'); div.className=cls;
+    div.innerHTML=`<div class="student-item-left"><span class="student-num">${i+1}</span><span class="student-name">${s.name}</span>${s.frontFixed&&!pinKey?'<span class="student-badge badge-front">앞자리</span>':''}${pinLabel?`<span class="student-badge badge-pin">📍${pinLabel}</span>`:''}</div><div class="student-item-right"><button class="btn-sfix ${s.frontFixed?'active':''}" onclick="toggleFrontFixed(${i})" title="앞자리 고정">📌</button><button class="btn-del" onclick="removeStudent(${i})" title="삭제">✕</button></div>`;
+    list.appendChild(div);
+  });
+}
+function updatePinSelect(){
+  const sel=document.getElementById('pin-student-select'), cur=sel.value;
+  sel.innerHTML='<option value="">학생 선택...</option>'+students.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+  if(students.find(s=>s.name===cur)) sel.value=cur;
+}
+
+// ── CONDITIONS ──
+function updateCondSelects(){
+  ['cond-a','cond-b'].forEach(id=>{
+    const sel=document.getElementById(id), val=sel.value;
+    sel.innerHTML=students.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+    if(students.find(s=>s.name===val)) sel.value=val;
+  });
+}
+function addCondition(){
+  const type=document.getElementById('cond-type').value;
+  const a=document.getElementById('cond-a').value, b=document.getElementById('cond-b').value;
+  if(!a||!b||a===b){showToast('서로 다른 학생을 선택하세요');return;}
+  if(conditions.find(c=>(c.a===a&&c.b===b)||(c.a===b&&c.b===a))){showToast('이미 있는 조건입니다');return;}
+  conditions.push({type,a,b}); renderCondChips();
+}
+function removeCondition(i){conditions.splice(i,1); renderCondChips();}
+function renderCondChips(){
+  document.getElementById('condition-chips').innerHTML=conditions.map((c,i)=>`<div class="chip ${c.type}">${c.type==='sep'?'🚫':'💛'} ${c.a} ↔ ${c.b}<span class="chip-x" onclick="removeCondition(${i})">✕</span></div>`).join('');
+}
+
+// ── ASSIGNMENT ──
+const shuffle=arr=>{const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+
+function assign(){
+  const rows=+document.getElementById('rows').value, cols=+document.getElementById('cols').value;
+  if(students.length===0){showToast('학생을 먼저 추가해주세요');return;}
+
+  const availSeats=[];
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){const key=`${r}-${c}`;if(!blockedSeats.has(key)&&!pinnedSeats[key])availSeats.push({r,c});}
+
+  const pinnedNames=new Set(Object.values(pinnedSeats));
+  const frontFixed=students.filter(s=>s.frontFixed&&!pinnedNames.has(s.name));
+  const normal=students.filter(s=>!s.frontFixed&&!pinnedNames.has(s.name));
+  const needed=frontFixed.length+normal.length;
+  if(needed>availSeats.length){showToast(`자리가 부족해요! 가용 ${availSeats.length}석, 필요 ${needed}명`);return;}
+
+  // seats sorted row-first (앞에서 뒤로) — used for front-fixed priority pool
+  const seatsByRow=[...availSeats].sort((a,b)=>a.r-b.r||a.c-b.c);
+
+  let baseGrid=Array.from({length:rows},()=>Array(cols).fill(null));
+  blockedSeats.forEach(k=>{const[r,c]=k.split('-');if(+r<rows&&+c<cols)baseGrid[r][c]='__x__';});
+  Object.entries(pinnedSeats).forEach(([k,name])=>{const[r,c]=k.split('-');if(+r<rows&&+c<cols)baseGrid[r][c]=name;});
+
+  let bestGrid=null, bestScore=-Infinity;
+
+  for(let attempt=0;attempt<300;attempt++){
+    const g=baseGrid.map(row=>[...row]);
+
+    // Shuffle front-fixed students, then assign them to seats in row order
+    // (row 0 first, then row 1, row 2, …) — never skip to the back
+    const sFrontFixed=shuffle(frontFixed);
+    const priorityPool=[...seatsByRow]; // already sorted front→back
+
+    // track which seats get taken by front-fixed
+    const takenKeys=new Set();
+    sFrontFixed.forEach(s=>{
+      const seat=priorityPool.find(p=>!takenKeys.has(`${p.r}-${p.c}`));
+      if(seat){ g[seat.r][seat.c]=s.name; takenKeys.add(`${seat.r}-${seat.c}`); }
+    });
+
+    // remaining seats for normal students (shuffled)
+    const remSeats=shuffle(availSeats.filter(s=>!takenKeys.has(`${s.r}-${s.c}`)));
+    const sNormal=shuffle(normal);
+    sNormal.forEach((s,i)=>{ if(i<remSeats.length) g[remSeats[i].r][remSeats[i].c]=s.name; });
+
+    const score=scoreGrid(g,rows,cols);
+    if(score>bestScore){bestScore=score;bestGrid=g;}
+    if(score===0) break;
+  }
+  // show reveal overlay then render
+  showRevealOverlay(()=>{
+    currentAssignment=bestGrid;
+    renderGrid(bestGrid,rows,cols);
+    document.getElementById('empty-state').style.display='none';
+    document.getElementById('legend').style.display='flex';
+    document.getElementById('toolbar-title').textContent=`자리 배치도 — ${new Date().toLocaleDateString('ko-KR')} ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
+  });
+}
+
+function scoreGrid(grid,rows,cols){
+  let score=0;
+  const pos={};
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++)
+    if(grid[r][c]&&grid[r][c]!=='__x__') pos[grid[r][c]]={r,c};
+
+  // ── 조건 위반 패널티 (무거움) ──
+  conditions.forEach(cond=>{
+    const pa=pos[cond.a], pb=pos[cond.b]; if(!pa||!pb) return;
+    const d=Math.abs(pa.r-pb.r)+Math.abs(pa.c-pb.c);
+    if(cond.type==='sep'&&d<=1) score-=100;
+    if(cond.type==='near'&&d>2) score-=100;
+  });
+
+  // ── 과거 자리 패널티 ──
+  // 최근 기록일수록 가중치 높음: 가장 최근 = N, 그 전 = N-1, …
+  const n=seatLog.length;
+  seatLog.forEach((log,logIdx)=>{
+    const weight = logIdx + 1; // 오래된 기록=1, 최근=n
+    log.seats.forEach(entry=>{
+      const cur=pos[entry.name];
+      if(!cur) return;
+      if(cur.r===entry.r && cur.c===entry.c){
+        score -= weight * 10; // 같은 자리
+      } else {
+        const dist=Math.abs(cur.r-entry.r)+Math.abs(cur.c-entry.c);
+        if(dist<=1) score -= weight * 4; // 바로 옆
+        else if(dist<=2) score -= weight * 2; // 2칸 이내
+      }
+    });
+  });
+
+  return score;
+}
+
+function renderGrid(grid,rows,cols){
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const key=`${r}-${c}`, cell=document.getElementById(`seat-${key}`);
+      if(!cell) continue;
+      if(blockedSeats.has(key)){applyBlockedStyle(cell);continue;}
+      cell.innerHTML='';
+      const num=document.createElement('span'); num.className='seat-num'; num.textContent=`${r+1}-${c+1}`; cell.appendChild(num);
+      if(pinnedSeats[key]){applyPinnedStyle(cell,pinnedSeats[key]);cell.classList.add('animate');cell.style.animationDelay=`${(r*cols+c)*20}ms`;continue;}
+      const val=grid[r][c];
+      if(val&&val!=='__x__'){
+        const st=students.find(s=>s.name===val);
+        cell.className=`seat-cell ${st&&st.frontFixed?'front-fixed-seat':'occupied'} animate`;
+        cell.style.animationDelay=`${(r*cols+c)*20}ms`;
+        if(st&&st.frontFixed){const ic=document.createElement('span');ic.className='seat-corner-icon';ic.textContent='📌';cell.appendChild(ic);}
+        const ne=document.createElement('div'); ne.className='seat-name'; ne.textContent=val; cell.appendChild(ne);
+      } else { cell.className='seat-cell'; }
+    }
+  }
+  // 뒤집힌 상태면 렌더 후 행 순서 재적용
+  if(isFlipped){
+    const gridEl=document.getElementById('seat-grid');
+    const cells=Array.from(gridEl.children);
+    const rowGroups=[];
+    for(let r=0;r<rows;r++) rowGroups.push(cells.slice(r*cols,(r+1)*cols));
+    [...rowGroups].reverse().forEach(row=>row.forEach(cell=>gridEl.appendChild(cell)));
+  }
+}
+
+function resetSeats(){
+  const rows=+document.getElementById('rows').value, cols=+document.getElementById('cols').value;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const key=`${r}-${c}`, cell=document.getElementById(`seat-${key}`);
+    if(!cell) continue;
+    if(blockedSeats.has(key)){applyBlockedStyle(cell);continue;}
+    if(pinnedSeats[key]){applyPinnedStyle(cell,pinnedSeats[key]);continue;}
+    cell.className='seat-cell'; cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span>`;
+  }
+  currentAssignment=null;
+  document.getElementById('empty-state').style.display='flex';
+  document.getElementById('legend').style.display='none';
+  document.getElementById('toolbar-title').textContent='자리 배치도';
+}
+function clearAll(){
+  if(!confirm('학생 목록, 빈자리 설정, 지정석을 모두 초기화할까요?')) return;
+  students=[];conditions=[];blockedSeats.clear();
+  Object.keys(pinnedSeats).forEach(k=>delete pinnedSeats[k]);
+  currentAssignment=null;
+  renderStudentList();updateCondSelects();updatePinSelect();renderCondChips();buildGrid();
+  document.getElementById('empty-state').style.display='flex';
+  document.getElementById('legend').style.display='none';
+  document.getElementById('toolbar-title').textContent='자리 배치도';
+  showToast('전체 초기화 완료');
+}
+
+// ── REVEAL OVERLAY ──
+function showRevealOverlay(callback){
+  const overlay = document.getElementById('reveal-overlay');
+  const numEl   = document.getElementById('overlay-num');
+  const bar     = document.getElementById('overlay-bar');
+  const TOTAL   = 5;
+
+  // show overlay instantly
+  overlay.classList.add('active');
+
+  // reset bar
+  bar.style.transition = 'none';
+  bar.style.transform  = 'scaleX(1)';
+
+  // show first number with pop animation
+  let remaining = TOTAL;
+  function showNum(n){
+    numEl.classList.remove('flash');
+    void numEl.offsetWidth; // reflow to restart animation
+    numEl.textContent = n;
+    numEl.classList.add('flash');
+  }
+  showNum(remaining);
+
+  // kick off bar shrink
+  requestAnimationFrame(()=>{
+    bar.style.transition = `transform ${TOTAL}s linear`;
+    bar.style.transform  = 'scaleX(0)';
+  });
+
+  const tick = setInterval(()=>{
+    remaining--;
+    if(remaining > 0){
+      showNum(remaining);
+    } else {
+      clearInterval(tick);
+      // compute while hidden, then reveal
+      callback();
+      // hide overlay with fade
+      overlay.style.transition = 'opacity .5s';
+      overlay.style.opacity    = '0';
+      setTimeout(()=>{
+        overlay.classList.remove('active');
+        overlay.style.transition = '';
+        overlay.style.opacity    = '';
+        bar.style.transition     = 'none';
+        bar.style.transform      = 'scaleX(1)';
+      }, 520);
+    }
+  }, 1000);
+}
+
+// ── SEAT LOG (누적 기록) ──
+function saveLog(){
+  if(!currentAssignment){showToast('배정 결과가 없습니다');return;}
+  const rows=+document.getElementById('rows').value;
+  const cols=+document.getElementById('cols').value;
+
+  // prompt for a label (e.g. "2025년 4월")
+  const defaultLabel = (() => {
+    const d=new Date();
+    return `${d.getFullYear()}년 ${d.getMonth()+1}월`;
+  })();
+  const label = window.prompt('이 배치의 이름을 입력하세요 (예: 2025년 4월)', defaultLabel);
+  if(label===null) return; // cancelled
+
+  // extract seat assignments
+  const seats=[];
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const v=currentAssignment[r][c];
+    if(v&&v!=='__x__') seats.push({name:v,r,c});
+  }
+
+  seatLog.push({
+    label: label||defaultLabel,
+    date: new Date().toISOString(),
+    rows, cols, seats
+  });
+
+  renderLog();
+  showToast(`📅 "${label||defaultLabel}" 기록됨`);
+}
+
+function renderLog(){
+  const list=document.getElementById('history-list');
+  document.getElementById('log-count').textContent=seatLog.length?`(${seatLog.length}건)`:'';
+  if(!seatLog.length){
+    list.innerHTML='<span style="font-size:11px;color:var(--text-muted);">아직 저장된 기록이 없습니다 — 배정 후 💾로 기록하세요</span>';
+    return;
+  }
+  list.innerHTML=seatLog.map((log,i)=>{
+    const d=new Date(log.date);
+    const dateStr=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+    return `<div class="history-tag">
+      <span class="log-label" onclick="previewLog(${i})" title="클릭하면 해당 배치 미리보기">📋 ${log.label}</span>
+      <span class="log-meta">${dateStr} · ${log.seats.length}명</span>
+      <span class="log-penalty" title="이 기록이 다음 배정에 반영됩니다">기록 반영중</span>
+      <span class="log-del" onclick="deleteLog(${i})" title="삭제">✕</span>
+    </div>`;
+  }).join('');
+}
+
+function deleteLog(i){
+  if(!confirm(`"${seatLog[i].label}" 기록을 삭제할까요?`)) return;
+  seatLog.splice(i,1);
+  renderLog();
+  showToast('기록 삭제됨');
+}
+
+function previewLog(i){
+  const log=seatLog[i];
+  // restore grid view for this log
+  document.getElementById('rows').value=log.rows;
+  document.getElementById('cols').value=log.cols;
+  buildGrid();
+  // render seats from log
+  const fakeGrid=Array.from({length:log.rows},()=>Array(log.cols).fill(null));
+  log.seats.forEach(s=>{ if(s.r<log.rows&&s.c<log.cols) fakeGrid[s.r][s.c]=s.name; });
+  renderGrid(fakeGrid,log.rows,log.cols);
+  document.getElementById('empty-state').style.display='none';
+  document.getElementById('legend').style.display='flex';
+  document.getElementById('toolbar-title').textContent=`📅 ${log.label} 배치 미리보기`;
+  showToast(`📋 ${log.label} 미리보기`);
+}
+
+function exportLog(){
+  if(!seatLog.length){showToast('저장된 기록이 없습니다');return;}
+  const data=JSON.stringify({version:1, seatLog}, null, 2);
+  const blob=new Blob([data],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  const now=new Date();
+  a.download=`자리배정_기록_${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('📥 기록 파일 저장됨');
+}
+
+function importLog(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try {
+      const parsed=JSON.parse(e.target.result);
+      const logs=parsed.seatLog||parsed; // support both wrapped and raw array
+      if(!Array.isArray(logs)) throw new Error('형식 오류');
+      const added=logs.filter(l=>l.label&&l.seats&&Array.isArray(l.seats));
+      // merge: skip duplicates by label+date
+      let mergedCount=0;
+      added.forEach(newLog=>{
+        const dup=seatLog.find(ex=>ex.label===newLog.label&&ex.date===newLog.date);
+        if(!dup){ seatLog.push(newLog); mergedCount++; }
+      });
+      renderLog();
+      showToast(`📂 ${mergedCount}건 불러옴 (총 ${seatLog.length}건)`);
+    } catch(err) {
+      showToast('파일 형식이 올바르지 않아요: '+err.message);
+    }
+  };
+  reader.readAsText(file,'utf-8');
+  input.value='';
+}
+
+// legacy compat stubs (toolbar 💾 now calls saveLog)
+function saveToHistory(){ saveLog(); }
+function renderHistory(){ renderLog(); }
+function loadHistory(i){ previewLog(i); }
+
+// ── TOAST ──
+function showToast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+buildGrid();
+applyZoom();
+</script>
+</body>
+</html>
