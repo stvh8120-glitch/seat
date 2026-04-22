@@ -66,13 +66,15 @@ header{
   border:1px solid var(--border);border-left:none;
   border-radius:0 8px 8px 0;
   cursor:pointer;display:flex;align-items:center;justify-content:center;
-  color:var(--text-muted);font-size:11px;z-index:20;
+  color:var(--text-muted);font-size:12px;z-index:20;
   transition:background .2s,color .2s;
   user-select:none;
 }
 .sidebar-toggle:hover{background:var(--border);color:var(--text);}
-.sidebar-toggle .arrow{transition:transform .32s;display:inline-block;}
-.sidebar-wrap.collapsed + .sidebar-toggle .arrow{transform:rotate(180deg);}
+/* 열려있을 때: ◀ (누르면 닫힘) */
+.sidebar-toggle .arrow::before{ content:'◀'; }
+/* 닫혀있을 때: ▶ (누르면 열림) */
+.sidebar-wrap.collapsed + .sidebar-toggle .arrow::before{ content:'▶'; }
 
 .section-label{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px;}
 .form-row{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;}
@@ -188,9 +190,9 @@ header{
 .classroom-area{flex:1;overflow:auto;padding:28px 20px;display:flex;flex-direction:column;align-items:center;}
 .desk-label{
   background:var(--surface2);border:2px solid var(--border);border-radius:8px;
-  padding:7px 44px;font-size:12px;font-weight:700;letter-spacing:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:700;letter-spacing:3px;
   color:var(--text-muted);margin-bottom:28px;text-transform:uppercase;
-  transition:background .3s,border-color .3s,color .3s;
 }
 /* flipped — 교탁이 아래로, 행 순서는 JS가 역순 처리 */
 .classroom-area.flipped { flex-direction: column-reverse; }
@@ -234,7 +236,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
 .seat-cell.front-fixed-seat{border-color:var(--fixed-color)!important;background:var(--fixed-bg)!important;}
 .seat-cell.pinned-seat{border-color:var(--pinned-color)!important;background:var(--pinned-bg)!important;}
 
-.seat-num{font-family:var(--font-mono);font-size:calc(var(--cell-size) * 0.11);color:var(--text-muted);position:absolute;top:4px;left:5px;user-select:none;}
+.seat-num{display:none;}
 .seat-name{font-size:calc(var(--cell-size) * 0.155);font-weight:500;text-align:center;line-height:1.3;padding:0 4px;user-select:none;}
 .seat-corner-icon{font-size:calc(var(--cell-size) * 0.11);position:absolute;top:3px;right:4px;user-select:none;}
 
@@ -359,12 +361,27 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
   header,.sidebar-wrap,.sidebar-toggle,.sidebar,.main-toolbar,.pin-panel,.block-hint,.history-panel,.legend,#reveal-overlay{display:none!important;}
   .app{display:block;}
   .main{overflow:visible;}
-  .classroom-area{padding:16px;}
-  .desk-label{color:#333;border-color:#999;background:#f5f5f5;letter-spacing:2px;}
-  .seat-cell{border-color:#aaa!important;background:#f9f9f9!important;color:#000;}
-  .seat-cell.blocked{background:#e5e5e5!important;border-style:dashed;}
-  .seat-num,.seat-name{color:#000;}
-  .classroom-area.flipped .desk-label{border-color:#60a5fa;color:#1d4ed8;}
+
+  @page{ size:A4 landscape; margin:10mm; }
+
+  .classroom-area{
+    padding:0;overflow:visible;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .classroom-area.flipped{flex-direction:column-reverse;}
+  #seat-grid{display:grid !important;}
+
+  .seat-cell{
+    border-color:#aaa !important;background:#f9f9f9 !important;
+    color:#000;border-radius:6px !important;
+  }
+  .seat-cell.blocked{background:#e5e5e5 !important;border-style:dashed !important;}
+  .seat-num{color:#555 !important;}
+  .seat-name{color:#000 !important;}
+  .desk-label{
+    color:#333 !important;border-color:#999 !important;background:#f5f5f5 !important;
+  }
+  .classroom-area.flipped .desk-label{border-color:#60a5fa !important;color:#1d4ed8 !important;}
 }
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -460,7 +477,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
 
   <!-- SIDEBAR TOGGLE (sibling of wrap, always visible) -->
   <button class="sidebar-toggle" id="sidebar-toggle" onclick="toggleSidebar()" title="사이드바 열기/닫기">
-    <span class="arrow">◀</span>
+    <span class="arrow"></span>
   </button>
 
   <!-- MAIN -->
@@ -480,7 +497,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
         </div>
         <button class="btn-icon" id="flip-btn" onclick="flipGrid()" title="교사/학생 시점 전환">⇅ 뒤집기</button>
         <button class="btn-icon" onclick="saveLog()">💾 기록</button>
-        <button class="btn-icon" onclick="window.print()">🖨 인쇄</button>
+        <button class="btn-icon" onclick="printGrid()">🖨 인쇄</button>
       </div>
     </div>
 
@@ -535,31 +552,105 @@ let currentAssignment=null, history=[], editMode='normal';
 // seatLog: array of { label, date, rows, cols, seats: [{name, r, c}] }
 let seatLog=[];
 
-// ── SIDEBAR TOGGLE ──
+// ── PRINT ──
+function printGrid(){
+  const cols = +document.getElementById('cols').value;
+  const rows = +document.getElementById('rows').value;
+
+  // 가로 A4, 여백 10mm 양쪽 = 유효 277mm × 841px/210mm ≈ 1111px (세로유효 ≈ 693px)
+  const PAGE_W = 1080; // 가로 유효 픽셀 (보수적)
+  const PAGE_H = 660;  // 세로 유효 픽셀 (교탁 높이 포함 고려해서 보수적으로)
+  const GAP = 4;
+  const DESK_H = 40;   // 교탁 높이 예약
+  const DESK_MB = 20;  // 교탁 아래 마진
+
+  // 가로 기준 셀 너비
+  const cellByW = Math.floor((PAGE_W - GAP * (cols - 1)) / cols);
+  // 세로 기준 셀 높이 → 너비로 환산 (셀 비율 w:h = 1:0.75)
+  const availH = PAGE_H - DESK_H - DESK_MB - GAP * (rows - 1);
+  const cellByH = Math.floor(availH / rows / 0.75);
+  // 둘 중 작은 값으로 맞춰야 페이지 안에 들어옴
+  const cellW = Math.min(cellByW, cellByH);
+  const cellH = Math.round(cellW * 0.75);
+
+  const grid = document.getElementById('seat-grid');
+  const prevCols = grid.style.gridTemplateColumns;
+  const prevGap  = grid.style.gap;
+  grid.style.gridTemplateColumns = `repeat(${cols}, ${cellW}px)`;
+  grid.style.gap = GAP + 'px';
+
+  const cells = grid.querySelectorAll('.seat-cell');
+  cells.forEach(c => { c.style.width = cellW + 'px'; c.style.height = cellH + 'px'; });
+
+  const desk = document.getElementById('desk-label');
+  const prevW = desk.style.width, prevH = desk.style.height, prevF = desk.style.fontSize;
+  desk.style.width    = '30%';
+  desk.style.height   = DESK_H + 'px';
+  desk.style.fontSize = Math.max(9, Math.round(cellW * 0.13)) + 'px';
+
+  window.print();
+
+  // 복원
+  grid.style.gridTemplateColumns = prevCols;
+  grid.style.gap = prevGap;
+  cells.forEach(c => { c.style.width = ''; c.style.height = ''; });
+  desk.style.width = prevW; desk.style.height = prevH; desk.style.fontSize = prevF;
+}
 let sidebarOpen = true;
 function toggleSidebar(){
   sidebarOpen = !sidebarOpen;
   document.getElementById('sidebar-wrap').classList.toggle('collapsed', !sidebarOpen);
-  const arrow = document.querySelector('.sidebar-toggle .arrow');
-  arrow.textContent = sidebarOpen ? '◀' : '▶';
+  setTimeout(fitCells, 340);
 }
 
 // ── ZOOM ──
-const CELL_SIZES = [52, 62, 72, 82, 96, 112, 130];
-let zoomIdx = 3; // default = 82px
+// zoomIdx: 수동 조정 오프셋 (-3 ~ +3). 0 = auto-fit 기준
+const ZOOM_OFFSETS = [-3, -2, -1, 0, 1, 2, 3];
+let zoomOffset = 0; // 0 = 자동 맞춤
 
-function applyZoom(){
-  const size = CELL_SIZES[zoomIdx];
-  document.documentElement.style.setProperty('--cell-size', size + 'px');
-  document.getElementById('zoom-label').textContent = Math.round((size/82)*100) + '%';
-  document.getElementById('zoom-out').disabled = zoomIdx === 0;
-  document.getElementById('zoom-in').disabled  = zoomIdx === CELL_SIZES.length - 1;
+function fitCells(){
+  const cols = +document.getElementById('cols').value;
+  const area = document.getElementById('classroom-area');
+  const availW = area.clientWidth - 40;
+  const gap = Math.round(Math.max(6, availW * 0.01));
+  const autoSize = Math.floor((availW - gap * (cols - 1)) / cols);
+  const size = Math.max(44, Math.min(160, autoSize + zoomOffset * 12));
+  const root = document.documentElement;
+  root.style.setProperty('--cell-size', size + 'px');
+  root.style.setProperty('--grid-cols', cols);
+
+  // 교탁 크기 직접 설정
+  const desk = document.getElementById('desk-label');
+  if(desk){
+    desk.style.width  = Math.round(availW * 0.30) + 'px';
+    desk.style.height = Math.round(size * 0.55) + 'px';
+    desk.style.fontSize = Math.max(9, Math.round(size * 0.13)) + 'px';
+  }
+
+  const label = zoomOffset === 0 ? 'AUTO'
+    : (zoomOffset > 0 ? '+' : '') + zoomOffset;
+  document.getElementById('zoom-label').textContent = label;
+  document.getElementById('zoom-out').disabled = zoomOffset <= -3;
+  document.getElementById('zoom-in').disabled  = zoomOffset >= 3;
 }
+
+function applyZoom(){ fitCells(); }
 
 function zoomGrid(dir){
-  zoomIdx = Math.max(0, Math.min(CELL_SIZES.length - 1, zoomIdx + dir));
-  applyZoom();
+  zoomOffset = Math.max(-3, Math.min(3, zoomOffset + dir));
+  fitCells();
 }
+
+// ResizeObserver: classroom-area 크기 변할 때마다 자동 재계산
+let _rafId = null;
+const _ro = new ResizeObserver(() => {
+  if(_rafId) cancelAnimationFrame(_rafId);
+  _rafId = requestAnimationFrame(() => { _rafId = null; fitCells(); });
+});
+document.addEventListener('DOMContentLoaded', () => {
+  const area = document.getElementById('classroom-area');
+  if(area) _ro.observe(area);
+});
 
 // ── FLIP (위아래 역순) ──
 let isFlipped = false;
@@ -607,6 +698,7 @@ function buildGrid(){
       grid.appendChild(cell);
     }
   }
+  fitCells();
 }
 
 function handleCellClick(r,c){
@@ -1288,7 +1380,6 @@ function showToast(msg){
 }
 
 buildGrid();
-applyZoom();
 </script>
 </body>
 </html>
