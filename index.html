@@ -268,7 +268,7 @@ body.light .file-drop-zone{ border-color:#94a3b8; }
 .tips-content.open{display:block;}
 
 /* ── CLASSROOM AREA ── */
-.classroom-area{flex:1;overflow:auto;padding:28px 20px 20px;display:flex;flex-direction:column;align-items:center;}
+.classroom-area{flex:1;overflow:auto;padding:28px 8px 20px;display:flex;flex-direction:column;align-items:center;}
 :root{ --desk-h: 50px; }
 .desk-label{
   background:var(--surface2);border:2px solid var(--border);border-radius:8px;
@@ -306,17 +306,17 @@ body.mode-normal .seat-cell.pinned-seat{ cursor:pointer; }
 #seat-grid{
   display:grid;
   gap:12px 16px;
+  width:100%;
   justify-content:center;
+  justify-items:center;
 }
 .seat-cell{
-  width:var(--cell-size);
-  height:calc(var(--cell-size) * 0.78);
   background:var(--surface2);border:1.5px solid var(--border);
-  border-radius:calc(var(--cell-size) * 0.12);
+  border-radius:10px;
   display:flex;flex-direction:column;align-items:center;justify-content:center;
   position:relative;overflow:hidden;
-  transition:border-color .15s,background .15s,transform .12s,width .2s,height .2s;
-  cursor:default;
+  transition:border-color .15s,background .15s,transform .12s;
+  cursor:default;flex-shrink:0;
 }
 body.mode-block .seat-cell{cursor:crosshair;}
 body.mode-pin .seat-cell{cursor:cell;}
@@ -547,7 +547,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
     <div>
       <div class="section-label">📐 교실 설정</div>
       <div class="inline-row">
-        <div class="form-row"><label>행 (앞뒤)</label><input type="number" id="rows" value="5" min="1" max="12" onchange="buildGrid()"></div>
+        <div class="form-row"><label>행 (앞뒤)</label><input type="number" id="rows" value="6" min="1" max="12" onchange="buildGrid()"></div>
         <div class="form-row"><label>열 (좌우)</label><input type="number" id="cols" value="6" min="1" max="12" onchange="buildGrid()"></div>
       </div>
     </div>
@@ -848,12 +848,14 @@ function printGrid(){
 
   window.print();
 
+  // 복원
   grid.style.gridTemplateColumns = prevCols;
   grid.style.gap = prevGap;
-  cells.forEach(c => { c.style.width = ''; c.style.height = ''; });
   root.style.setProperty('--desk-w',  prevDeskW);
   root.style.setProperty('--desk-h',  prevDeskH);
   root.style.setProperty('--desk-fs', prevDeskFs);
+  // 셀 크기는 fitCells가 다시 계산해서 적용
+  fitCells();
 }
 let sidebarOpen = true;
 function toggleSidebar(){
@@ -867,26 +869,48 @@ function fitCells(){
   const rows = +document.getElementById('rows').value;
   const area = document.getElementById('classroom-area');
 
-  const availW = area.clientWidth  - 40;
-  const availH = area.clientHeight - 40;
-  const gap    = 12;
+  const sidebar = document.getElementById('sidebar-wrap');
+  const sidebarW = (sidebar && !sidebar.classList.contains('collapsed'))
+    ? sidebar.offsetWidth + 22 : 22;
+  const availW = window.innerWidth - sidebarW - 24;
+  const availH = area.clientHeight - 32;
   const colGap = 16;
-  const RATIO  = 0.75;
-  const padV   = 16 + 12 + 20;
+  const rowGap = 12;
+  const RATIO  = 0.55;
+  const deskReserve = 100; // 교탁 + 여백 넉넉히
 
   const sizeByW = Math.floor((availW - colGap * (cols - 1)) / cols);
-  const sizeByH = Math.floor((availH - padV - gap * (rows - 1)) / (RATIO * (0.8 + rows)));
+  const sizeByH = Math.floor((availH - deskReserve - rowGap * (rows - 1)) / (rows * RATIO));
 
-  const size = Math.max(44, Math.min(160, sizeByH < sizeByW ? sizeByH : sizeByW));
+  const size = Math.max(44, Math.min(300, Math.min(sizeByW, sizeByH)));
 
   document.documentElement.style.setProperty('--cell-size', size + 'px');
   document.documentElement.style.setProperty('--grid-cols', cols);
 
+  // 그리드 컬럼 + 각 셀 크기 직접 업데이트
+  const gridEl2 = document.getElementById('seat-grid');
+  if(gridEl2){
+    gridEl2.style.gridTemplateColumns = `repeat(${cols}, ${size}px)`;
+    const cellH = Math.round(size * 0.55);
+    const cellR = Math.round(size * 0.12) + 'px';
+    const cellFs = Math.max(10, Math.round(size * 0.155)) + 'px';
+    const numFs  = Math.max(8,  Math.round(size * 0.10))  + 'px';
+    gridEl2.querySelectorAll('.seat-cell').forEach(cell => {
+      cell.style.width        = size + 'px';
+      cell.style.height       = cellH + 'px';
+      cell.style.borderRadius = cellR;
+      const name = cell.querySelector('.seat-name');
+      const num  = cell.querySelector('.seat-num');
+      if(name) name.style.fontSize = cellFs;
+      if(num)  num.style.fontSize  = numFs;
+    });
+  }
+
   requestAnimationFrame(() => {
     const gridEl      = document.getElementById('seat-grid');
-    const actualGridW = gridEl ? gridEl.offsetWidth : size * cols + gap * (cols - 1);
+    const actualGridW = gridEl ? gridEl.offsetWidth : size * cols + colGap * (cols - 1);
     const deskHeight  = Math.round(size * RATIO * 0.8);
-    const deskWidth   = Math.round(actualGridW * 0.33);
+    const deskWidth   = Math.min(300, Math.round(actualGridW * 0.33));
     const fontSize    = Math.max(10, Math.round(size * 0.15));
     document.documentElement.style.setProperty('--desk-w',  deskWidth  + 'px');
     document.documentElement.style.setProperty('--desk-h',  deskHeight + 'px');
@@ -955,8 +979,6 @@ function buildGrid(){
   const cols=+document.getElementById('cols').value;
   const grid=document.getElementById('seat-grid');
   grid.style.gridTemplateColumns=`repeat(${cols}, var(--cell-size))`;
-  grid.style.width='';
-  grid.style.maxWidth='';
   grid.innerHTML='';
   // prune out-of-range refs
   [...blockedSeats].forEach(k=>{const[r,c]=k.split('-').map(Number);if(r>=rows||c>=cols)blockedSeats.delete(k);});
@@ -976,7 +998,7 @@ function buildGrid(){
       grid.appendChild(cell);
     }
   }
-  fitCells();
+  requestAnimationFrame(()=> fitCells());
 }
 
 let swapFirst = null; // { r, c } 첫 번째 선택 좌석
