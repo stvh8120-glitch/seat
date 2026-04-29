@@ -29,7 +29,30 @@ body.light {
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:var(--font-sans);background:var(--bg);color:var(--text);min-height:100vh;}
 
-/* ── HEADER ── */
+/* mobile hamburger — header에 위치, 모바일에서만 보임 */
+.mobile-menu-btn{
+  display:none;
+  flex-direction:column;justify-content:center;align-items:center;gap:5px;
+  width:36px;height:36px;background:var(--surface2);
+  border:1px solid var(--border);border-radius:8px;cursor:pointer;
+  margin-left:8px;padding:0;flex-shrink:0;
+  transition:background .2s;
+}
+.mobile-menu-btn:hover{background:var(--border);}
+.mobile-menu-btn span{
+  display:block;width:16px;height:2px;
+  background:var(--text-muted);border-radius:2px;
+  transition:transform .25s,opacity .25s;
+}
+/* 열렸을 때 X 모양 */
+.mobile-menu-btn.open span:nth-child(1){ transform:translateY(7px) rotate(45deg); }
+.mobile-menu-btn.open span:nth-child(2){ opacity:0; }
+.mobile-menu-btn.open span:nth-child(3){ transform:translateY(-7px) rotate(-45deg); }
+
+@media(max-width:600px){
+  .mobile-menu-btn{ display:flex; }
+  .sidebar-toggle{ display:none !important; }
+}
 header{
   background:var(--surface);border-bottom:1px solid var(--border);
   padding:14px 20px;display:flex;align-items:center;gap:12px;position:relative;z-index:10;
@@ -52,7 +75,7 @@ header{
   display:flex;
   flex-shrink:0;
   width:var(--sidebar-w);
-  overflow:hidden;                          /* clips sidebar when width→0 */
+  overflow:hidden;
   transition:width .32s cubic-bezier(.4,0,.2,1);
   z-index:5;
 }
@@ -61,7 +84,7 @@ header{
 /* ── SIDEBAR ── */
 .sidebar{
   width:var(--sidebar-w);
-  min-width:var(--sidebar-w);              /* keeps content width stable while animating */
+  min-width:var(--sidebar-w);
   background:var(--surface);
   border-right:1px solid var(--border);
   overflow-y:auto;overflow-x:hidden;
@@ -85,10 +108,59 @@ header{
   user-select:none;
 }
 .sidebar-toggle:hover{background:var(--border);color:var(--text);}
-/* 열려있을 때: ◀ (누르면 닫힘) */
 .sidebar-toggle .arrow::before{ content:'◀'; }
-/* 닫혀있을 때: ▶ (누르면 열림) */
 .sidebar-wrap.collapsed + .sidebar-toggle .arrow::before{ content:'▶'; }
+
+/* ── MOBILE: 상단 드로어 ── */
+@media(max-width:600px){
+  .app{
+    flex-direction:column;
+    height:calc(100vh - 53px);
+    overflow:hidden;
+    position:relative;
+  }
+  .sidebar-wrap{
+    position:absolute;
+    top:0;left:0;right:0;
+    width:100% !important;
+    max-height:100%;
+    height:100%;
+    overflow:hidden;
+    transition:transform .32s cubic-bezier(.4,0,.2,1);
+    transform:translateY(0);
+    border-right:none;
+    border-bottom:1px solid var(--border);
+    z-index:30;
+  }
+  .sidebar-wrap.collapsed{
+    transform:translateY(-100%);
+    border-bottom:none;
+  }
+  .sidebar{
+    width:100%;
+    min-width:0;
+    height:100%;
+    border-right:none;
+    overflow-y:auto;
+  }
+  .sidebar-toggle{
+    position:fixed;
+    bottom:16px;
+    right:16px;
+    width:44px;height:44px;
+    border-radius:50%;
+    border:1px solid var(--border);
+    z-index:50;
+    box-shadow:0 2px 8px rgba(0,0,0,.3);
+  }
+  .sidebar-toggle .arrow::before{ content:'▲'; }
+  .sidebar-wrap.collapsed + .sidebar-toggle .arrow::before{ content:'▼'; }
+  main.main{
+    position:absolute;
+    top:0;left:0;right:0;bottom:0;
+    overflow:hidden;
+  }
+}
 
 .section-label{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px;}
 .form-row{display:flex;flex-direction:column;gap:5px;margin-bottom:10px;}
@@ -244,6 +316,21 @@ body.light .file-drop-zone{ border-color:#94a3b8; }
 .toolbar-actions{display:flex;gap:6px;}
 .btn-icon{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:inherit;transition:background .2s;}
 .btn-icon:hover{background:var(--border);}
+
+/* 액션 버튼이 넘칠 때만 아래로 */
+@media(max-width:900px){
+  .main-toolbar{flex-wrap:wrap;padding:8px 12px;}
+  .toolbar-title{flex:none;}
+  .mode-tabs{flex:none;}
+  .toolbar-actions{margin-left:auto;}
+}
+/* 액션 버튼이 새 줄로 내려갈 때 오른쪽 정렬 */
+@media(max-width:640px){
+  .toolbar-actions{
+    width:100%;
+    justify-content:flex-end;
+  }
+}
 
 .pin-panel{padding:8px 20px;border-bottom:1px solid var(--border);background:rgba(167,139,250,0.06);display:none;align-items:center;gap:10px;flex-shrink:0;}
 .pin-panel.visible{display:flex;}
@@ -455,15 +542,23 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
   body{background:#fff;color:#000;}
   header,.sidebar-wrap,.sidebar-toggle,.sidebar,.main-toolbar,.pin-panel,.block-hint,.tips-bar,.history-panel,.legend,#reveal-overlay{display:none!important;}
   .app{display:block;}
-  .main{overflow:visible;}
-
   @page{ size:A4 landscape; margin:10mm; }
 
+  .main{overflow:visible;}
   .classroom-area{
     padding:0;overflow:visible;
     display:flex;flex-direction:column;align-items:center;
+    justify-content:flex-start;
   }
-  .classroom-area.flipped{flex-direction:column-reverse;}
+  .classroom-area.flipped{
+    flex-direction:column;
+    justify-content:flex-start;
+    height:calc(210mm - 20mm);
+  }
+  .classroom-area.flipped .desk-label{
+    margin-top:auto !important;
+    margin-bottom:0 !important;
+  }
   #seat-grid{display:grid !important;}
 
   .seat-cell{
@@ -475,8 +570,12 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
   .seat-name{color:#000 !important;}
   .desk-label{
     color:#333 !important;border-color:#999 !important;background:#f5f5f5 !important;
+    margin-bottom:12px !important; margin-top:0 !important;
   }
-  .classroom-area.flipped .desk-label{border-color:#60a5fa !important;color:#1d4ed8 !important;}
+  .classroom-area.flipped .desk-label{
+    border-color:#60a5fa !important;color:#1d4ed8 !important;
+    margin-bottom:0 !important; margin-top:12px !important;
+  }
 }
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
@@ -537,6 +636,9 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
   <div class="logo">SEAT<span>/</span>MAP</div>
   <span style="font-size:12px;color:var(--text-muted);margin-left:6px;">교실 자리 배정 시스템</span>
   <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="라이트/다크 모드 전환">🌙</button>
+  <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()">
+    <span></span><span></span><span></span>
+  </button>
 </header>
 
 <div class="app">
@@ -707,13 +809,24 @@ let seatLog=[];
 // ── PDF 저장 ──
 async function savePdf(){
   const cols = +document.getElementById('cols').value;
-  const rows = +document.getElementById('rows').value;
-  const GAP = 5, PRINT_CELL = 80, DESK_H = 44;
   const isLight = document.body.classList.contains('light');
+
+  // 현재 화면의 실제 셀 크기를 그대로 읽기
+  const firstCell = document.querySelector('#seat-grid .seat-cell');
+  const CELL_W  = firstCell ? firstCell.offsetWidth  : 80;
+  const CELL_H  = firstCell ? firstCell.offsetHeight : 55;
+  const CELL_R  = firstCell ? getComputedStyle(firstCell).borderRadius : '8px';
+  const COL_GAP = 16, ROW_GAP = 12;
+
+  // 교탁 크기
+  const deskEl = document.getElementById('desk-label');
+  const DESK_W = deskEl ? deskEl.offsetWidth  : Math.round(CELL_W * cols * 0.33);
+  const DESK_H = deskEl ? deskEl.offsetHeight : Math.round(CELL_H * 0.8);
+  const DESK_MB = 12;
 
   showToast('📄 PDF 생성 중...');
 
-  // 오프스크린 컨테이너 생성 — 화면에 안 보임
+  // 오프스크린 컨테이너 — 화면에 안 보임
   const container = document.createElement('div');
   container.style.cssText = `
     position:fixed;left:-9999px;top:0;
@@ -723,51 +836,72 @@ async function savePdf(){
   `;
 
   // 교탁
-  const printGridW = PRINT_CELL * cols + GAP * (cols - 1);
   const desk = document.createElement('div');
   desk.style.cssText = `
-    width:${Math.round(printGridW*0.33)}px;height:${DESK_H}px;
+    width:${DESK_W}px;height:${DESK_H}px;
     border:2px solid ${isLight ? '#94a3b8' : '#2e3347'};border-radius:8px;
-    display:flex;align-items:center;justify-content:center;
-    font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;
+    display:flex;align-items:center;justify-content:center;gap:6px;
+    font-size:${Math.max(10, Math.round(CELL_W * 0.15))}px;font-weight:700;
+    letter-spacing:2px;text-transform:uppercase;
     color:${isLight ? '#475569' : '#64748b'};
     background:${isLight ? '#f8fafc' : '#1a1d27'};
-    margin-bottom:16px;
+    margin-bottom:${DESK_MB}px;box-sizing:border-box;
   `;
   desk.textContent = '🏫 교탁';
   container.appendChild(desk);
 
-  // 그리드
+  // 그리드 — 현재 화면과 동일한 gap
   const gridEl = document.createElement('div');
-  gridEl.style.cssText = `display:grid;grid-template-columns:repeat(${cols},${PRINT_CELL}px);gap:${GAP}px;`;
+  gridEl.style.cssText = `
+    display:grid;
+    grid-template-columns:repeat(${cols},${CELL_W}px);
+    gap:${ROW_GAP}px ${COL_GAP}px;
+  `;
 
   const srcCells = document.querySelectorAll('#seat-grid .seat-cell');
   srcCells.forEach(src => {
-    const r = +src.dataset.r, c = +src.dataset.c;
-    const key = `${r}-${c}`;
     const cell = document.createElement('div');
-    const cellH = Math.round(PRINT_CELL * 0.75);
-    const isBlocked = src.classList.contains('blocked');
+    const isBlocked    = src.classList.contains('blocked');
     const isFrontFixed = src.classList.contains('front-fixed-seat');
-    const isPinned = src.classList.contains('pinned-seat');
+    const isPinned     = src.classList.contains('pinned-seat');
     const nameEl = src.querySelector('.seat-name');
     const name = nameEl ? nameEl.textContent : '';
+    const numEl = src.querySelector('.seat-num');
+    const num  = numEl  ? numEl.textContent  : '';
 
     let bg = isLight ? '#f8fafc' : '#1e2233';
     let border = isLight ? '#cbd5e1' : '#3b4460';
-    if(isBlocked){ bg = isLight ? '#e2e8f0' : '#141720'; border = isLight ? '#94a3b8' : '#475569'; }
-    else if(isFrontFixed){ bg = isLight ? 'rgba(220,38,38,.08)' : 'rgba(248,113,113,.12)'; border = isLight ? '#dc2626' : '#f87171'; }
-    else if(isPinned){ bg = isLight ? 'rgba(124,58,237,.08)' : 'rgba(167,139,250,.1)'; border = isLight ? '#7c3aed' : '#a78bfa'; }
+    if(isBlocked){
+      bg = isLight ? '#e2e8f0' : '#141720';
+      border = isLight ? '#94a3b8' : '#475569';
+    } else if(isFrontFixed){
+      bg = isLight ? 'rgba(220,38,38,.08)' : 'rgba(248,113,113,.12)';
+      border = isLight ? '#dc2626' : '#f87171';
+    } else if(isPinned){
+      bg = isLight ? 'rgba(124,58,237,.08)' : 'rgba(167,139,250,.1)';
+      border = isLight ? '#7c3aed' : '#a78bfa';
+    }
+
+    const nameFs = Math.max(9, Math.round(CELL_W * 0.155));
+    const numFs  = Math.max(7, Math.round(CELL_W * 0.10));
 
     cell.style.cssText = `
-      width:${PRINT_CELL}px;height:${cellH}px;
+      width:${CELL_W}px;height:${CELL_H}px;
       background:${bg};border:1.5px ${isBlocked?'dashed':'solid'} ${border};
-      border-radius:6px;display:flex;align-items:center;justify-content:center;
-      font-size:13px;font-weight:500;color:${isLight?'#0f172a':'#e2e8f0'};
-      box-sizing:border-box;
+      border-radius:${CELL_R};display:flex;flex-direction:column;
+      align-items:center;justify-content:center;
+      font-weight:500;color:${isLight?'#0f172a':'#e2e8f0'};
+      box-sizing:border-box;position:relative;overflow:hidden;
     `;
-    if(isBlocked) cell.textContent = '✕';
-    else if(name) cell.textContent = name;
+    if(isBlocked){
+      cell.style.fontSize = nameFs + 'px';
+      cell.textContent = '✕';
+    } else if(name){
+      const nameSpan = document.createElement('span');
+      nameSpan.style.cssText = `font-size:${nameFs}px;font-weight:600;line-height:1;text-align:center;padding:0 4px;`;
+      nameSpan.textContent = name;
+      cell.appendChild(nameSpan);
+    }
     gridEl.appendChild(cell);
   });
 
@@ -812,27 +946,25 @@ function printGrid(){
   const cols = +document.getElementById('cols').value;
   const rows = +document.getElementById('rows').value;
 
-  // 가로 A4, 여백 10mm 양쪽 = 유효 277mm × 841px/210mm ≈ 1111px (세로유효 ≈ 693px)
-  const PAGE_W = 1080; // 가로 유효 픽셀 (보수적)
-  const PAGE_H = 660;  // 세로 유효 픽셀 (교탁 높이 포함 고려해서 보수적으로)
-  const GAP = 4;
-  const DESK_H = 40;   // 교탁 높이 예약
-  const DESK_MB = 20;  // 교탁 아래 마진
+  const PAGE_W = 980;
+  const PAGE_H = 640;
+  const COL_GAP = 16;
+  const ROW_GAP = 12;
+  const DESK_H = 40;
+  const DESK_MB = 12;
 
-  // 가로 기준 셀 너비
-  const cellByW = Math.floor((PAGE_W - GAP * (cols - 1)) / cols);
-  // 세로 기준 셀 높이 → 너비로 환산 (셀 비율 w:h = 1:0.75)
-  const availH = PAGE_H - DESK_H - DESK_MB - GAP * (rows - 1);
-  const cellByH = Math.floor(availH / rows / 0.75);
-  // 둘 중 작은 값으로 맞춰야 페이지 안에 들어옴
-  const cellW = Math.min(cellByW, cellByH);
-  const cellH = Math.round(cellW * 0.75);
+  const cellByW = Math.floor((PAGE_W - COL_GAP * (cols - 1)) / cols);
+  const availH  = PAGE_H - DESK_H - DESK_MB - ROW_GAP * (rows - 1);
+  const cellByH = Math.floor(availH / rows / 0.55);
+  const cellW   = Math.min(cellByW, cellByH);
+  const cellH   = Math.round(cellW * 0.55);
+  const printGridW = cellW * cols + COL_GAP * (cols - 1);
 
   const grid = document.getElementById('seat-grid');
   const prevCols = grid.style.gridTemplateColumns;
   const prevGap  = grid.style.gap;
   grid.style.gridTemplateColumns = `repeat(${cols}, ${cellW}px)`;
-  grid.style.gap = GAP + 'px';
+  grid.style.gap = `${ROW_GAP}px ${COL_GAP}px`;
 
   const cells = grid.querySelectorAll('.seat-cell');
   cells.forEach(c => { c.style.width = cellW + 'px'; c.style.height = cellH + 'px'; });
@@ -841,12 +973,38 @@ function printGrid(){
   const prevDeskW  = root.style.getPropertyValue('--desk-w');
   const prevDeskH  = root.style.getPropertyValue('--desk-h');
   const prevDeskFs = root.style.getPropertyValue('--desk-fs');
-  const printGridW = cellW * cols + GAP * (cols - 1);
-  root.style.setProperty('--desk-w',  Math.round(printGridW * 0.5) + 'px');
+  root.style.setProperty('--desk-w',  Math.min(300, Math.round(printGridW * 0.33)) + 'px');
   root.style.setProperty('--desk-h',  DESK_H + 'px');
-  root.style.setProperty('--desk-fs', Math.max(9, Math.round(cellW * 0.11)) + 'px');
+  root.style.setProperty('--desk-fs', Math.max(9, Math.round(cellW * 0.15)) + 'px');
+
+  // 뒤집기 상태에 맞게 교탁 margin 조정
+  const deskLabel = document.getElementById('desk-label');
+  const prevDeskMb = deskLabel ? deskLabel.style.marginBottom : '';
+  const prevDeskMt = deskLabel ? deskLabel.style.marginTop : '';
+  if(deskLabel){
+    if(isFlipped){
+      deskLabel.style.marginBottom = '0';
+      deskLabel.style.marginTop = '12px';
+    } else {
+      deskLabel.style.marginBottom = '12px';
+      deskLabel.style.marginTop = '0';
+    }
+  }
+
+  // 뒤집기 상태에서 인쇄 시 교탁을 그리드 아래로 이동
+  const area = document.getElementById('classroom-area');
+  let deskMoved = false;
+  if(isFlipped && deskLabel && area){
+    area.appendChild(deskLabel);
+    deskMoved = true;
+  }
 
   window.print();
+
+  // 복원
+  if(deskMoved && deskLabel && area){
+    area.insertBefore(deskLabel, area.firstChild); // 원래 위치(맨 앞)로
+  }
 
   // 복원
   grid.style.gridTemplateColumns = prevCols;
@@ -854,14 +1012,27 @@ function printGrid(){
   root.style.setProperty('--desk-w',  prevDeskW);
   root.style.setProperty('--desk-h',  prevDeskH);
   root.style.setProperty('--desk-fs', prevDeskFs);
-  // 셀 크기는 fitCells가 다시 계산해서 적용
+  if(deskLabel){
+    deskLabel.style.marginBottom = prevDeskMb;
+    deskLabel.style.marginTop    = prevDeskMt;
+  }
   fitCells();
 }
 let sidebarOpen = true;
 function toggleSidebar(){
   sidebarOpen = !sidebarOpen;
   document.getElementById('sidebar-wrap').classList.toggle('collapsed', !sidebarOpen);
-  setTimeout(fitCells, 340);
+  const mobileBtn = document.getElementById('mobile-menu-btn');
+  if(mobileBtn) mobileBtn.classList.toggle('open', sidebarOpen);
+  // 데스크탑에서만 재계산 (모바일은 overlay라 레이아웃 변화 없음)
+  if(window.innerWidth > 600) setTimeout(()=> fitCells(), 350);
+}
+// 모바일에서 초기 접힘
+if(window.innerWidth <= 600){
+  sidebarOpen = false;
+  document.addEventListener('DOMContentLoaded', ()=>{
+    document.getElementById('sidebar-wrap').classList.add('collapsed');
+  });
 }
 
 function fitCells(){
@@ -870,9 +1041,12 @@ function fitCells(){
   const area = document.getElementById('classroom-area');
 
   const sidebar = document.getElementById('sidebar-wrap');
-  const sidebarW = (sidebar && !sidebar.classList.contains('collapsed'))
-    ? sidebar.offsetWidth + 22 : 22;
+  const isMobile = window.innerWidth <= 600;
+  const sidebarW = isMobile ? 0 :
+    (sidebar && !sidebar.classList.contains('collapsed'))
+      ? sidebar.offsetWidth + 22 : 22;
   const availW = window.innerWidth - sidebarW - 24;
+  // 모바일에서 사이드바는 overlay라 높이 계산에서 제외
   const availH = area.clientHeight - 32;
   const colGap = 16;
   const rowGap = 12;
@@ -946,6 +1120,38 @@ function flipGrid(){
     rowGroups.push(cells.slice(r * cols, (r + 1) * cols));
   (isFlipped ? [...rowGroups].reverse() : rowGroups)
     .forEach(row => row.forEach(cell => gridEl.appendChild(cell)));
+}
+
+
+// ── SECURITY: XSS 이스케이프 ──
+function esc(str){
+  if(str===null||str===undefined) return '';
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#x27;')
+    .replace(/`/g,'&#x60;');
+}
+
+// JSON 불러오기 검증
+function validateLogData(data){
+  if(!data || typeof data !== 'object') return false;
+  if(data.version && typeof data.version !== 'number') return false;
+  if(!Array.isArray(data.seatLog)) return false;
+  for(const log of data.seatLog){
+    if(typeof log.label !== 'string') return false;
+    if(typeof log.rows !== 'number' || typeof log.cols !== 'number') return false;
+    if(!Array.isArray(log.seats)) return false;
+    for(const s of log.seats){
+      if(typeof s.name !== 'string') return false;
+    }
+    // 이름 길이 제한
+    log.label = log.label.substring(0, 100);
+    for(const s of log.seats) s.name = s.name.substring(0, 50);
+  }
+  return true;
 }
 
 // ── TIPS ──
@@ -1098,7 +1304,7 @@ function togglePinned(r,c,studentName){
 function applyPinnedStyle(cell,studentName){
   const r=+cell.dataset.r,c=+cell.dataset.c;
   cell.className='seat-cell pinned-seat';
-  cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span><span class="seat-corner-icon" style="color:var(--pinned-color)">📍</span><div class="seat-name" style="color:var(--pinned-color);font-size:11px">${studentName}</div>`;
+  cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span><span class="seat-corner-icon" style="color:var(--pinned-color)">📍</span><div class="seat-name" style="color:var(--pinned-color);font-size:11px">${esc(studentName)}</div>`;
 }
 function removePinnedForStudent(name){
   Object.keys(pinnedSeats).forEach(k=>{
@@ -1349,7 +1555,7 @@ function handleBulkKey(e){
 }
 function addBulk(){
   const ta=document.getElementById('bulk-input');
-  const lines=ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  const lines=ta.value.split('\n').map(s=>s.trim().substring(0,50)).filter(Boolean);
   const added=lines.filter(name=>{
     if(students.find(s=>s.name===name)) return false;
     students.push({name,frontFixed:false}); return true;
@@ -1381,13 +1587,13 @@ function renderStudentList(){
     const pinLabel=pinKey?`${+pinKey.split('-')[0]+1}행${+pinKey.split('-')[1]+1}열`:null;
     const cls=pinKey?'student-item seat-pinned':(s.frontFixed?'student-item front-fixed':'student-item');
     const div=document.createElement('div'); div.className=cls;
-    div.innerHTML=`<div class="student-item-left"><span class="student-num">${i+1}</span><span class="student-name">${s.name}</span>${s.frontFixed&&!pinKey?'<span class="student-badge badge-front">앞자리</span>':''}${pinLabel?`<span class="student-badge badge-pin">📍${pinLabel}</span>`:''}</div><div class="student-item-right"><button class="btn-sfix ${s.frontFixed?'active':''}" onclick="toggleFrontFixed(${i})" title="앞자리 고정">📌</button><button class="btn-del" onclick="removeStudent(${i})" title="삭제">✕</button></div>`;
+    div.innerHTML=`<div class="student-item-left"><span class="student-num">${i+1}</span><span class="student-name">${esc(s.name)}</span>${s.frontFixed&&!pinKey?'<span class="student-badge badge-front">앞자리</span>':''}${pinLabel?`<span class="student-badge badge-pin">📍${esc(pinLabel)}</span>`:''}</div><div class="student-item-right"><button class="btn-sfix ${s.frontFixed?'active':''}" onclick="toggleFrontFixed(${i})" title="앞자리 고정">📌</button><button class="btn-del" onclick="removeStudent(${i})" title="삭제">✕</button></div>`;
     list.appendChild(div);
   });
 }
 function updatePinSelect(){
   const sel=document.getElementById('pin-student-select'), cur=sel.value;
-  sel.innerHTML='<option value="">학생 선택...</option>'+students.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+  sel.innerHTML='<option value="">학생 선택...</option>'+students.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('');
   if(students.find(s=>s.name===cur)) sel.value=cur;
 }
 
@@ -1395,7 +1601,7 @@ function updatePinSelect(){
 function updateCondSelects(){
   ['cond-a','cond-b'].forEach(id=>{
     const sel=document.getElementById(id), val=sel.value;
-    sel.innerHTML=students.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+    sel.innerHTML=students.map(s=>`<option value="${esc(s.name)}">${esc(s.name)}</option>`).join('');
     if(students.find(s=>s.name===val)) sel.value=val;
   });
 }
@@ -1408,7 +1614,7 @@ function addCondition(){
 }
 function removeCondition(i){conditions.splice(i,1); renderCondChips();}
 function renderCondChips(){
-  document.getElementById('condition-chips').innerHTML=conditions.map((c,i)=>`<div class="chip ${c.type}">${c.type==='sep'?'🚫':'💛'} ${c.a} ↔ ${c.b}<span class="chip-x" onclick="removeCondition(${i})">✕</span></div>`).join('');
+  document.getElementById('condition-chips').innerHTML=conditions.map((c,i)=>`<div class="chip ${esc(c.type)}">${c.type==='sep'?'🚫':'💛'} ${esc(c.a)} ↔ ${esc(c.b)}<span class="chip-x" onclick="removeCondition(${i})">✕</span></div>`).join('');
 }
 
 // ── ASSIGNMENT ──
@@ -1711,7 +1917,7 @@ function renderLog(){
     const d=new Date(log.date);
     const dateStr=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
     return `<div class="history-tag">
-      <span class="log-label" onclick="previewLog(${i})" title="클릭하면 해당 배치 미리보기">📋 ${log.label}</span>
+      <span class="log-label" onclick="previewLog(${i})" title="클릭하면 해당 배치 미리보기">📋 ${esc(log.label)}</span>
       <span class="log-meta">${dateStr} · ${log.seats.length}명</span>
       <span class="log-penalty" title="이 기록이 다음 배정에 반영됩니다">기록 반영중</span>
       <span class="log-del" onclick="deleteLog(${i})" title="삭제">✕</span>
@@ -1864,6 +2070,7 @@ async function importLog(input){
   const text = await file.text();
   let parsed;
   try { parsed = JSON.parse(text); } catch(e){ showToast('파일 형식 오류'); return; }
+  if(!validateLogData(parsed)){ showToast('파일 형식이 올바르지 않습니다'); return; }
 
   // version 2 = 암호화됨
   if(parsed.version === 2 && parsed.encrypted){
@@ -1872,6 +2079,7 @@ async function importLog(input){
     try {
       const plain = await decryptData(parsed, pw);
       const data  = JSON.parse(plain);
+      if(!validateLogData(data)){ showToast('파일 형식이 올바르지 않습니다'); return; }
       mergeLogs(data.seatLog || []);
     } catch(e){
       showToast('❌ 비밀번호가 틀렸거나 파일이 손상됐어요');
