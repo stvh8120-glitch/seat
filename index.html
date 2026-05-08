@@ -574,7 +574,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
   }
   .seat-cell.blocked{background:#e5e5e5 !important;border-style:dashed !important;}
   .seat-num{color:#555 !important;}
-  .seat-name{font-size:calc(var(--cell-size) * 0.28) !important;font-weight:600 !important;}
+  .seat-name{font-size:calc(var(--cell-size) * 0.19) !important;font-weight:600 !important;}
   .seat-corner-icon{ display:none !important; }
   .desk-label{
     color:#333 !important;border-color:#999 !important;background:#f5f5f5 !important;
@@ -962,8 +962,8 @@ function printGrid(){
   const cols = +document.getElementById('cols').value;
   const rows = +document.getElementById('rows').value;
 
-  const PAGE_W = 1120;
-  const PAGE_H = 720;
+  const PAGE_W = 980;
+  const PAGE_H = 640;
   const COL_GAP = 16;
   const ROW_GAP = 12;
   const DESK_H = 40;
