@@ -462,6 +462,13 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
 }
 .history-tag .log-del{color:var(--text-muted);margin-left:2px;font-size:13px;}
 .history-tag .log-del:hover{color:var(--danger);}
+.log-view-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:6px;padding:2px 8px;font-size:10px;
+  color:var(--accent3);cursor:pointer;font-family:inherit;
+  transition:border-color .15s,background .15s;white-space:nowrap;
+}
+.log-view-btn:hover{border-color:var(--accent3);background:rgba(96,165,250,.08);}
 
 /* ── REVEAL OVERLAY ── */
 #reveal-overlay{
@@ -567,7 +574,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
   }
   .seat-cell.blocked{background:#e5e5e5 !important;border-style:dashed !important;}
   .seat-num{color:#555 !important;}
-  .seat-name{color:#000 !important;}
+  .seat-corner-icon{ display:none !important; }
   .desk-label{
     color:#333 !important;border-color:#999 !important;background:#f5f5f5 !important;
     margin-bottom:12px !important; margin-top:0 !important;
@@ -848,7 +855,9 @@ async function savePdf(){
     margin-bottom:${DESK_MB}px;box-sizing:border-box;
   `;
   desk.textContent = '🏫 교탁';
-  container.appendChild(desk);
+
+  // 뒤집기 상태: 그리드 먼저, 교탁 아래
+  if(!isFlipped) container.appendChild(desk);
 
   // 그리드 — 현재 화면과 동일한 gap
   const gridEl = document.createElement('div');
@@ -906,6 +915,12 @@ async function savePdf(){
   });
 
   container.appendChild(gridEl);
+  // 뒤집기 상태: 교탁 아래에 붙임
+  if(isFlipped){
+    desk.style.marginBottom = '0';
+    desk.style.marginTop = `${DESK_MB}px`;
+    container.appendChild(desk);
+  }
   document.body.appendChild(container);
 
   try {
@@ -1114,12 +1129,37 @@ function flipGrid(){
   const gridEl = document.getElementById('seat-grid');
   const rows = +document.getElementById('rows').value;
   const cols  = +document.getElementById('cols').value;
+
+  // 셀 DOM 행 역순
   const cells = Array.from(gridEl.children);
   const rowGroups = [];
   for(let r = 0; r < rows; r++)
     rowGroups.push(cells.slice(r * cols, (r + 1) * cols));
   (isFlipped ? [...rowGroups].reverse() : rowGroups)
     .forEach(row => row.forEach(cell => gridEl.appendChild(cell)));
+
+  // pinnedSeats 행 좌표 변환
+  const newPinned = {};
+  Object.entries(pinnedSeats).forEach(([key, name]) => {
+    const [r, c] = key.split('-').map(Number);
+    const newR = rows - 1 - r;
+    newPinned[`${newR}-${c}`] = name;
+  });
+  pinnedSeats = newPinned;
+
+  // blockedSeats 행 좌표 변환
+  const newBlocked = new Set();
+  blockedSeats.forEach(key => {
+    const [r, c] = key.split('-').map(Number);
+    newBlocked.add(`${rows - 1 - r}-${c}`);
+  });
+  blockedSeats = newBlocked;
+
+  // currentAssignment 행 역순
+  if(currentAssignment){
+    currentAssignment = [...currentAssignment].reverse();
+    renderGrid(currentAssignment, rows, cols);
+  }
 }
 
 
@@ -1304,7 +1344,7 @@ function togglePinned(r,c,studentName){
 function applyPinnedStyle(cell,studentName){
   const r=+cell.dataset.r,c=+cell.dataset.c;
   cell.className='seat-cell pinned-seat';
-  cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span><span class="seat-corner-icon" style="color:var(--pinned-color)">📍</span><div class="seat-name" style="color:var(--pinned-color);font-size:11px">${esc(studentName)}</div>`;
+  cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span><span class="seat-corner-icon" style="color:var(--pinned-color)">📍</span><div class="seat-name" style="color:var(--pinned-color)">${esc(studentName)}</div>`;
 }
 function removePinnedForStudent(name){
   Object.keys(pinnedSeats).forEach(k=>{
@@ -1917,9 +1957,10 @@ function renderLog(){
     const d=new Date(log.date);
     const dateStr=`${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
     return `<div class="history-tag">
-      <span class="log-label" onclick="previewLog(${i})" title="클릭하면 해당 배치 미리보기">📋 ${esc(log.label)}</span>
+      <span class="log-label">📋 ${esc(log.label)}</span>
       <span class="log-meta">${dateStr} · ${log.seats.length}명</span>
       <span class="log-penalty" title="이 기록이 다음 배정에 반영됩니다">기록 반영중</span>
+      <button class="log-view-btn" onclick="showLogModal(${i})" title="자리 보기">자리 보기</button>
       <span class="log-del" onclick="deleteLog(${i})" title="삭제">✕</span>
     </div>`;
   }).join('');
@@ -1930,6 +1971,77 @@ function deleteLog(i){
   seatLog.splice(i,1);
   renderLog();
   showToast('기록 삭제됨');
+}
+
+function showLogModal(i){
+  const log = seatLog[i];
+  const d = new Date(log.date);
+  const dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+
+  // 기존 모달 제거
+  document.getElementById('log-modal')?.remove();
+  document.getElementById('log-modal-backdrop')?.remove();
+
+  const backdrop = document.createElement('div');
+  backdrop.id = 'log-modal-backdrop';
+  backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1200;';
+  document.body.appendChild(backdrop);
+
+  const modal = document.createElement('div');
+  modal.id = 'log-modal';
+  modal.style.cssText = `
+    position:fixed;z-index:1201;
+    top:50%;left:50%;transform:translate(-50%,-50%);
+    background:var(--surface);border:1px solid var(--border);
+    border-radius:14px;padding:20px;
+    max-width:90vw;max-height:85vh;overflow:auto;
+    box-shadow:0 8px 40px rgba(0,0,0,.4);
+  `;
+
+  // 그리드 렌더
+  const fakeGrid = Array.from({length:log.rows}, ()=>Array(log.cols).fill(null));
+  log.seats.forEach(s=>{ if(s.r<log.rows && s.c<log.cols) fakeGrid[s.r][s.c]=s.name; });
+
+  const cellW = Math.min(90, Math.floor((window.innerWidth*0.85 - 40) / log.cols));
+  const cellH = Math.round(cellW * 0.62);
+  const isLight = document.body.classList.contains('light');
+
+  let gridHtml = `<div style="display:grid;grid-template-columns:repeat(${log.cols},${cellW}px);gap:8px 10px;">`;
+  for(let r=0; r<log.rows; r++){
+    for(let c=0; c<log.cols; c++){
+      const name = fakeGrid[r][c];
+      const bg = isLight ? '#f8fafc' : '#1e2233';
+      const border = isLight ? '#cbd5e1' : '#3b4460';
+      const color = isLight ? '#0f172a' : '#e2e8f0';
+      gridHtml += `<div style="
+        width:${cellW}px;height:${cellH}px;
+        background:${name ? bg : (isLight?'#f1f5f9':'#141720')};
+        border:1.5px solid ${name ? border : (isLight?'#e2e8f0':'#2e3347')};
+        border-radius:8px;display:flex;align-items:center;justify-content:center;
+        font-size:${Math.max(9,Math.round(cellW*0.14))}px;font-weight:600;
+        color:${color};box-sizing:border-box;
+      ">${name ? esc(name) : ''}</div>`;
+    }
+  }
+  gridHtml += '</div>';
+
+  modal.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;">
+      <div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);">📋 ${esc(log.label)}</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">${dateStr} · ${log.seats.length}명</div>
+      </div>
+      <button onclick="document.getElementById('log-modal').remove();document.getElementById('log-modal-backdrop').remove();"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;cursor:pointer;color:var(--text);font-size:13px;">✕ 닫기</button>
+    </div>
+    <div style="display:flex;justify-content:center;margin-bottom:12px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 18px;font-size:12px;font-weight:700;color:var(--text-muted);">🏫 교탁</div>
+    </div>
+    ${gridHtml}
+  `;
+
+  document.body.appendChild(modal);
+  backdrop.onclick = ()=>{ modal.remove(); backdrop.remove(); };
 }
 
 function previewLog(i){
