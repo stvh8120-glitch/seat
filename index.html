@@ -574,6 +574,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
   }
   .seat-cell.blocked{background:#e5e5e5 !important;border-style:dashed !important;}
   .seat-num{color:#555 !important;}
+  .seat-name{font-size:calc(var(--cell-size) * 0.28) !important;font-weight:600 !important;}
   .seat-corner-icon{ display:none !important; }
   .desk-label{
     color:#333 !important;border-color:#999 !important;background:#f5f5f5 !important;
@@ -961,8 +962,8 @@ function printGrid(){
   const cols = +document.getElementById('cols').value;
   const rows = +document.getElementById('rows').value;
 
-  const PAGE_W = 980;
-  const PAGE_H = 640;
+  const PAGE_W = 1120;
+  const PAGE_H = 720;
   const COL_GAP = 16;
   const ROW_GAP = 12;
   const DESK_H = 40;
@@ -1126,57 +1127,42 @@ function flipGrid(){
   btn.classList.toggle('flip-active', isFlipped);
   document.getElementById('classroom-area').classList.toggle('flipped', isFlipped);
 
-  const gridEl = document.getElementById('seat-grid');
   const rows = +document.getElementById('rows').value;
   const cols  = +document.getElementById('cols').value;
 
-  // 셀 DOM 행 역순
+  applyFlipView(rows, cols);
+}
+
+function applyFlipView(rows, cols){
+  const gridEl = document.getElementById('seat-grid');
   const cells = Array.from(gridEl.children);
-  const rowGroups = [];
-  for(let r = 0; r < rows; r++)
-    rowGroups.push(cells.slice(r * cols, (r + 1) * cols));
-  (isFlipped ? [...rowGroups].reverse() : rowGroups)
-    .forEach(row => row.forEach(cell => gridEl.appendChild(cell)));
 
-  // pinnedSeats 행 좌표 변환
-  const newPinned = {};
-  Object.entries(pinnedSeats).forEach(([key, name]) => {
-    const [r, c] = key.split('-').map(Number);
-    const newR = rows - 1 - r;
-    newPinned[`${newR}-${c}`] = name;
+  // 항상 원래 순서(r=0 맨위, c=0 맨왼쪽)로 정렬
+  cells.sort((a,b)=>{
+    const ar=+a.dataset.r, ac=+a.dataset.c;
+    const br=+b.dataset.r, bc=+b.dataset.c;
+    return ar!==br ? ar-br : ac-bc;
   });
-  pinnedSeats = newPinned;
+  cells.forEach(cell=>gridEl.appendChild(cell));
 
-  // blockedSeats 행 좌표 변환
-  const newBlocked = new Set();
-  blockedSeats.forEach(key => {
-    const [r, c] = key.split('-').map(Number);
-    newBlocked.add(`${rows - 1 - r}-${c}`);
-  });
-  blockedSeats = newBlocked;
-
-  // 셀 data-r 업데이트 + 지정석/빈자리 스타일 재적용
-  gridEl.querySelectorAll('.seat-cell').forEach(cell => {
-    const r = +cell.dataset.r;
-    const c = +cell.dataset.c;
-    const newR = rows - 1 - r;
-    const newKey = `${newR}-${c}`;
-    cell.dataset.r = newR;
-    cell.id = `seat-${newKey}`;
-    // 지정석 재적용
-    if(pinnedSeats[newKey]){
-      applyPinnedStyle(cell, pinnedSeats[newKey]);
-    }
-    // 빈자리 재적용
-    if(blockedSeats.has(newKey)){
-      applyBlockedStyle(cell);
-    }
-  });
-
-  // currentAssignment 행 역순
+  // renderGrid가 isFlipped 상태에 따라 DOM 순서도 처리함
   if(currentAssignment){
-    currentAssignment = [...currentAssignment].reverse();
     renderGrid(currentAssignment, rows, cols);
+  } else {
+    // 배정 없어도 빈자리/지정석 재적용
+    if(isFlipped){
+      const rowGroups=[];
+      for(let r=0;r<rows;r++) rowGroups.push(cells.slice(r*cols,(r+1)*cols));
+      [...rowGroups].reverse().map(row=>[...row].reverse()).forEach(row=>row.forEach(cell=>gridEl.appendChild(cell)));
+    }
+    Object.entries(pinnedSeats).forEach(([key,name])=>{
+      const cell=document.getElementById(`seat-${key}`);
+      if(cell) applyPinnedStyle(cell,name);
+    });
+    blockedSeats.forEach(key=>{
+      const cell=document.getElementById(`seat-${key}`);
+      if(cell) applyBlockedStyle(cell);
+    });
   }
 }
 
@@ -1788,13 +1774,13 @@ function renderGrid(grid,rows,cols){
       } else { cell.className='seat-cell'; }
     }
   }
-  // 뒤집힌 상태면 렌더 후 행 순서 재적용
+  // 뒤집힌 상태면 행+열 순서 재적용
   if(isFlipped){
     const gridEl=document.getElementById('seat-grid');
     const cells=Array.from(gridEl.children);
     const rowGroups=[];
     for(let r=0;r<rows;r++) rowGroups.push(cells.slice(r*cols,(r+1)*cols));
-    [...rowGroups].reverse().forEach(row=>row.forEach(cell=>gridEl.appendChild(cell)));
+    [...rowGroups].reverse().map(row=>[...row].reverse()).forEach(row=>row.forEach(cell=>gridEl.appendChild(cell)));
   }
 }
 
@@ -1993,23 +1979,29 @@ function deleteLog(i){
 
 function loadLogToGrid(i){
   const log = seatLog[i];
-  // 행/열 맞추기
+  isFlipped = false;
+  document.getElementById('classroom-area').classList.remove('flipped');
+  const flipBtn = document.getElementById('flip-btn');
+  if(flipBtn) flipBtn.classList.remove('flip-active');
+
   document.getElementById('rows').value = log.rows;
   document.getElementById('cols').value = log.cols;
   buildGrid();
-  // 배치 복원
-  const grid = Array.from({length:log.rows}, ()=>Array(log.cols).fill(null));
-  log.seats.forEach(s=>{ if(s.r<log.rows && s.c<log.cols) grid[s.r][s.c]=s.name; });
-  currentAssignment = grid;
-  renderGrid(currentAssignment, log.rows, log.cols);
-  // 학생 목록도 복원
-  const names = log.seats.map(s=>s.name).filter(Boolean);
-  names.forEach(name=>{
-    if(!students.find(s=>s.name===name)) students.push({name, frontFixed:false});
+
+  // buildGrid의 requestAnimationFrame 이후에 실행
+  requestAnimationFrame(()=>{
+    const grid = Array.from({length:log.rows}, ()=>Array(log.cols).fill(null));
+    log.seats.forEach(s=>{ if(s.r<log.rows && s.c<log.cols) grid[s.r][s.c]=s.name; });
+    currentAssignment = grid;
+    renderGrid(currentAssignment, log.rows, log.cols);
+    const names = log.seats.map(s=>s.name).filter(Boolean);
+    names.forEach(name=>{
+      if(!students.find(s=>s.name===name)) students.push({name, frontFixed:false});
+    });
+    renderStudentList(); updateCondSelects(); updatePinSelect();
+    document.getElementById('toolbar-title').textContent = `자리 배치도 — ${esc(log.label)}`;
+    showToast(`↩ "${esc(log.label)}" 배치 불러옴`);
   });
-  renderStudentList(); updateCondSelects(); updatePinSelect();
-  document.getElementById('toolbar-title').textContent = `자리 배치도 — ${log.label}`;
-  showToast(`↩ "${log.label}" 배치 불러옴`);
 }
 
 function showLogModal(i){
