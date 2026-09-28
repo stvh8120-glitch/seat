@@ -59,6 +59,20 @@ header{
 }
 .logo{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--accent);letter-spacing:-1px;}
 .logo span{color:var(--text-muted);font-weight:400;}
+.header-assign{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  background:var(--accent);color:#0f1117;border:none;border-radius:9px;
+  padding:7px 18px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;
+  white-space:nowrap;transition:background .2s,transform .1s;
+}
+.header-assign:hover{background:#86efac;}
+.header-assign:active{transform:translate(-50%,-50%) scale(.97);}
+body.light .header-assign:hover{background:#22c55e;}
+@media(max-width:600px){
+  .header-sub{display:none;}
+  .header-assign{padding:7px 12px;}
+}
+@media(max-width:360px){ .ha-label{display:none;} }
 .theme-toggle{
   margin-left:auto;background:var(--surface2);border:1px solid var(--border);
   border-radius:8px;padding:6px 10px;font-size:16px;cursor:pointer;
@@ -547,32 +561,39 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
 
 @media print{
   body{background:#fff;color:#000;}
-  header,.sidebar-wrap,.sidebar-toggle,.sidebar,.main-toolbar,.pin-panel,.block-hint,.tips-bar,.history-panel,.legend,#reveal-overlay{display:none!important;}
-  .app{display:block;}
+  header,.sidebar-wrap,.sidebar-toggle,.sidebar,.main-toolbar,.pin-panel,.block-hint,.tips-bar,.history-panel,.legend,#reveal-overlay,#toast{display:none!important;}
+  .app{display:block;height:auto;overflow:visible;}
   @page{ size:A4 landscape; margin:10mm; }
 
-  .main{overflow:visible;}
-  .classroom-area{
+  .main{overflow:visible;height:auto;}
+  /* 좌석 블록(교탁 포함)은 일반·뒤집기 모두 용지 위아래 가운데 */
+  .classroom-area,
+  .classroom-area.flipped{
     padding:0;overflow:visible;
     display:flex;flex-direction:column;align-items:center;
-    justify-content:flex-start;
-  }
-  .classroom-area.flipped{
-    flex-direction:column;
-    justify-content:flex-start;
-    height:calc(210mm - 20mm);
+    justify-content:center;
+    flex:none;
+    height:186mm;
   }
   .classroom-area.flipped .desk-label{
-    margin-top:auto !important;
+    margin-top:12px !important;
     margin-bottom:0 !important;
   }
   #seat-grid{display:grid !important;}
 
-  .seat-cell{
-    border-color:#aaa !important;background:#f9f9f9 !important;
-    color:#000;border-radius:6px !important;
+  /* 인쇄 시 앞자리 고정·지정석·선택 색상 없이 모두 같은 테두리 */
+  #seat-grid .seat-cell,
+  #seat-grid .seat-cell.occupied,
+  #seat-grid .seat-cell.front-fixed-seat,
+  #seat-grid .seat-cell.pinned-seat,
+  #seat-grid .seat-cell.swap-selected{
+    border-color:#aaa !important;border-style:solid !important;background:#f9f9f9 !important;
+    box-shadow:none !important;color:#000;border-radius:6px !important;
   }
-  .seat-cell.blocked{background:#e5e5e5 !important;border-style:dashed !important;}
+  #seat-grid .seat-cell.blocked{background:#e5e5e5 !important;border-color:#aaa !important;border-style:dashed !important;}
+  #seat-grid .seat-name{color:#000 !important;}
+  #seat-grid .seat-cell{animation:none !important;opacity:1 !important;transform:none !important;}
+  #seat-grid .blocked-x{color:#999 !important;}
   .seat-num{color:#555 !important;}
   .seat-name{font-size:calc(var(--cell-size) * 0.19) !important;font-weight:600 !important;}
   .seat-corner-icon{ display:none !important; }
@@ -581,13 +602,92 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
     margin-bottom:12px !important; margin-top:0 !important;
   }
   .classroom-area.flipped .desk-label{
-    border-color:#60a5fa !important;color:#1d4ed8 !important;
+    border-color:#999 !important;color:#333 !important;
     margin-bottom:0 !important; margin-top:12px !important;
   }
 }
 ::-webkit-scrollbar{width:5px;height:5px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
+
+/* ── PRINT OPTIONS / 명렬표 ── */
+.po-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;}
+.po-box{
+  position:fixed;z-index:1301;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(600px,94vw);max-height:92vh;overflow:hidden;
+  display:flex;flex-direction:column;gap:12px;
+  background:var(--surface);border:1px solid var(--border);border-radius:14px;
+  padding:20px 22px;box-shadow:0 24px 60px rgba(0,0,0,.5);color:var(--text);
+}
+.po-title{font-size:15px;font-weight:700;}
+.po-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;}
+.po-check{cursor:pointer;user-select:none;font-weight:600;}
+.po-check input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
+.po-label{font-size:12px;color:var(--text-muted);}
+.po-seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:2px;}
+.po-seg button{background:none;border:none;color:var(--text-muted);padding:5px 12px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;}
+.po-seg button.active{background:var(--accent3);color:#0f1117;font-weight:700;}
+.po-mode{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid var(--border);color:var(--text-muted);margin-left:auto;}
+.po-mode.custom{border-color:var(--accent2);color:var(--accent2);}
+.po-roster{display:flex;flex-direction:column;gap:10px;min-height:0;flex:1;transition:opacity .2s;}
+.po-roster.disabled{opacity:.4;pointer-events:none;}
+.po-fields{display:flex;gap:10px;}
+.po-fields label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-muted);}
+.po-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 9px;font-size:13px;font-family:inherit;outline:none;width:100%;}
+.po-input:focus{border-color:var(--accent3);}
+.po-table-wrap{overflow-y:auto;max-height:38vh;min-height:80px;border:1px solid var(--border);border-radius:8px;}
+.po-table{width:100%;border-collapse:collapse;font-size:12px;}
+.po-table th{position:sticky;top:0;z-index:1;background:var(--surface2);color:var(--text-muted);font-weight:600;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);}
+.po-table td{padding:2px 4px;border-bottom:1px solid var(--border);}
+.po-table tr:last-child td{border-bottom:none;}
+.po-cell{width:100%;background:transparent;border:1px solid transparent;border-radius:4px;color:var(--text);padding:4px 6px;font-size:12px;font-family:inherit;outline:none;}
+.po-cell:hover{border-color:var(--border);}
+.po-cell:focus{border-color:var(--accent3);background:var(--surface2);}
+.po-cell.po-no{text-align:center;font-family:var(--font-mono);}
+.po-handle{width:28px;text-align:center;color:var(--text-muted);cursor:grab;touch-action:none;user-select:none;font-size:14px;}
+.po-handle:hover{color:var(--text);}
+.po-table tr.po-dragging{opacity:.35;}
+.po-table tr.po-drop-before td{box-shadow:inset 0 2px 0 var(--accent3);}
+.po-table tr.po-drop-after td{box-shadow:inset 0 -2px 0 var(--accent3);}
+body.po-drag-active, body.po-drag-active *{cursor:grabbing !important;}
+.po-empty{padding:18px !important;text-align:center;color:var(--text-muted);font-size:12px;}
+.po-hint{font-size:11px;color:var(--text-muted);}
+@media(max-width:600px){ .po-fields{flex-direction:column;} }
+/* 다듬기 */
+.po-box{gap:14px;padding:22px 24px 20px;border-radius:16px;}
+.po-head{display:flex;flex-direction:column;gap:3px;}
+.po-title{font-size:16px;}
+.po-sub{font-size:11px;color:var(--text-muted);}
+.po-switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;
+  background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;transition:border-color .2s;}
+.po-switch-row:hover{border-color:var(--accent);}
+.po-switch-title{font-size:13px;font-weight:700;}
+.po-switch-desc{font-size:11px;color:var(--text-muted);margin-top:2px;}
+.po-switch{position:relative;width:42px;height:24px;flex-shrink:0;}
+.po-switch input{position:absolute;opacity:0;width:0;height:0;}
+.po-slider{position:absolute;inset:0;background:var(--border);border-radius:24px;transition:background .2s;}
+.po-slider::before{content:'';position:absolute;left:3px;top:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s;}
+.po-switch input:checked + .po-slider{background:var(--accent);}
+.po-switch input:checked + .po-slider::before{transform:translateX(18px);}
+.po-switch input:focus-visible + .po-slider{outline:2px solid var(--accent3);outline-offset:2px;}
+.po-roster{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;}
+.po-seg{background:var(--surface);}
+.po-input{background:var(--surface);}
+.po-table-wrap{background:var(--surface);border-radius:10px;}
+.po-table th{background:var(--surface);text-align:center;font-size:11px;letter-spacing:.5px;}
+.po-table tbody tr:nth-child(even) td{background:rgba(127,127,127,.05);}
+.po-table tbody tr:hover td{background:rgba(96,165,250,.08);}
+.po-cell{text-align:center;}
+.po-roster .btn-icon{border-radius:8px;font-size:12px;}
+.po-hint{text-align:center;}
+.pw-actions .pw-btn{border-radius:9px;}
+
+/* 인쇄용 시트 (명렬표 포함 인쇄 시에만 생성) */
+#print-sheet{position:fixed;left:-99999px;top:0;}
+@media print{
+  body.print-sheet-mode > *:not(#print-sheet){display:none !important;}
+  body.print-sheet-mode #print-sheet{position:static;left:auto;display:flex !important;}
+}
 
 /* ── PASSWORD MODAL ── */
 .pw-backdrop{
@@ -642,7 +742,8 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
 
 <header>
   <div class="logo">SEAT<span>/</span>MAP</div>
-  <span style="font-size:12px;color:var(--text-muted);margin-left:6px;">교실 자리 배정 시스템</span>
+  <span class="header-sub" style="font-size:12px;color:var(--text-muted);margin-left:6px;">교실 자리 배정 시스템</span>
+  <button class="header-assign" onclick="assign()" title="랜덤 자리 배정">🎲 <span class="ha-label">랜덤 자리 배정</span></button>
   <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="라이트/다크 모드 전환">🌙</button>
   <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()">
     <span></span><span></span><span></span>
@@ -744,7 +845,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
         <button class="btn-icon" id="flip-btn" onclick="flipGrid()" title="교사/학생 시점 전환">⇅ 뒤집기</button>
         <button class="btn-icon" onclick="saveLog()" title="현재 배치를 JSON 파일로 저장합니다&#10;이전 배치 기록이 있으면 함께 저장됩니다">💾 기록</button>
         <button class="btn-icon" onclick="savePdf()" title="현재 배치를 PDF로 저장합니다">📄 PDF</button>
-        <button class="btn-icon" onclick="printGrid()">🖨 인쇄</button>
+        <button class="btn-icon" onclick="openPrintOptions()" title="인쇄 옵션 (명렬표 함께 인쇄 가능)">🖨 인쇄</button>
       </div>
     </div>
 
@@ -766,7 +867,11 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
         <br>
         <b>📍 지정석 & 앞자리 고정</b><br>
         📍 지정석 설정 모드에서 학생 선택 후 원하는 자리 클릭 → 해당 자리 고정<br>
-        📌 버튼으로 앞자리 고정 시 행 순서대로 앞쪽 자리 우선 배치
+        📌 버튼으로 앞자리 고정 시 행 순서대로 앞쪽 자리 우선 배치<br>
+        <br>
+        <b>🖨 인쇄 & 명렬표</b><br>
+        🖨 인쇄 → "명렬표 함께 인쇄"를 켜면 배치도 왼쪽/오른쪽에 명렬표가 붙어서 인쇄<br>
+        명렬표는 학생 목록(불러온 파일)이 기본이고, 번호·이름·추가 열을 직접 고칠 수 있음
       </div>
     </div>
 
@@ -957,6 +1062,376 @@ async function savePdf(){
   }
 }
 
+
+// ── 인쇄 옵션 & 명렬표 ──
+// 설정(켜기/위치/제목/추가 열)만 브라우저에 저장. 학생 이름은 저장하지 않음
+const printOpts = { roster:false, side:'right', title:'명렬표', extraCol:'' };
+let rosterRows = null; // null이면 학생 목록을 그대로 사용, 편집하면 커스텀 배열
+(function loadPrintOpts(){
+  try{
+    const o = JSON.parse(localStorage.getItem('printOpts') || 'null');
+    if(o && typeof o === 'object'){
+      printOpts.roster = !!o.roster;
+      printOpts.side = o.side === 'left' ? 'left' : 'right';
+      if(typeof o.title === 'string') printOpts.title = o.title.substring(0,40);
+      if(typeof o.extraCol === 'string') printOpts.extraCol = o.extraCol.substring(0,20);
+    }
+  }catch(e){}
+})();
+function savePrintOpts(){
+  try{ localStorage.setItem('printOpts', JSON.stringify(printOpts)); }catch(e){}
+}
+// "김민준(반장)" → 이름: 김민준 / 비고: 반장  (전각 괄호도 인식)
+function splitNameNote(full){
+  const m = String(full||'').match(/^(.*?)\s*[(（]([^()（）]*)[)）]\s*$/);
+  if(m && m[1].trim()) return { name:m[1].trim(), note:m[2].trim() };
+  return { name:String(full||'').trim(), note:'' };
+}
+function rosterFromStudents(){
+  return students.map((s,i)=>{ const p = splitNameNote(s.name); return { no:s.no ? String(s.no) : String(i+1), name:p.name, extra:p.note }; });
+}
+function getRosterRows(){
+  if(rosterRows) return rosterRows;
+  return rosterFromStudents();
+}
+
+function closePrintOptions(){
+  document.getElementById('po-box')?.remove();
+  document.getElementById('po-backdrop')?.remove();
+}
+
+function openPrintOptions(){
+  closePrintOptions();
+  const draft = { ...printOpts };
+  let rows = getRosterRows().map(r=>({ no:r.no||'', name:r.name||'', extra:r.extra||'' }));
+  let customized = !!rosterRows;
+  // 이름에 괄호가 있으면 '비고' 열을 자동으로 켬
+  if(!draft.extraCol.trim() && rows.some(r=>r.extra)) draft.extraCol = '비고';
+
+  const bd = document.createElement('div');
+  bd.className = 'po-backdrop'; bd.id = 'po-backdrop';
+  const box = document.createElement('div');
+  box.className = 'po-box'; box.id = 'po-box';
+  box.innerHTML = `
+    <div class="po-head">
+      <div class="po-title">🖨 인쇄 옵션</div>
+      <div class="po-sub">A4 가로 한 장에 자리 배치도를 인쇄합니다</div>
+    </div>
+    <label class="po-switch-row">
+      <div>
+        <div class="po-switch-title">명렬표 함께 인쇄</div>
+        <div class="po-switch-desc">배치도 옆에 번호·이름 목록을 붙입니다</div>
+      </div>
+      <span class="po-switch"><input type="checkbox" id="po-enable"><span class="po-slider"></span></span>
+    </label>
+    <div class="po-roster" id="po-roster">
+      <div class="po-row">
+        <span class="po-label">명렬표 위치</span>
+        <div class="po-seg" id="po-side">
+          <button type="button" data-side="left">◀ 왼쪽</button>
+          <button type="button" data-side="right">오른쪽 ▶</button>
+        </div>
+        <span class="po-mode" id="po-mode"></span>
+      </div>
+      <div class="po-fields">
+        <label>제목<input class="po-input" id="po-title" maxlength="40" placeholder="예: 2학년 3반 명렬표"></label>
+        <label>추가 열 이름 (비우면 숨김)<input class="po-input" id="po-extra" maxlength="20" placeholder="예: 비고, 1인1역"></label>
+      </div>
+      <div class="po-table-wrap"><table class="po-table"><thead id="po-thead"></thead><tbody id="po-tbody"></tbody></table></div>
+      <div class="po-row">
+        <button type="button" class="btn-icon" id="po-add">+ 행 추가</button>
+        <button type="button" class="btn-icon" id="po-reset" title="직접 고친 내용을 버리고 현재 학생 목록으로 다시 채웁니다">↺ 학생 목록으로 되돌리기</button>
+      </div>
+    </div>
+    <div class="po-hint" id="po-hint"></div>
+    <div class="pw-actions">
+      <button class="pw-btn pw-cancel" id="po-cancel">취소</button>
+      <button class="pw-btn pw-cancel" id="po-save">저장</button>
+      <button class="pw-btn pw-ok" id="po-print">🖨 인쇄</button>
+    </div>`;
+  document.body.appendChild(bd);
+  document.body.appendChild(box);
+
+  const $ = id => box.querySelector('#'+id);
+  const enableEl = $('po-enable'), titleEl = $('po-title'), extraEl = $('po-extra');
+  enableEl.checked = draft.roster;
+  titleEl.value = draft.title;
+  extraEl.value = draft.extraCol;
+
+  function updateMode(){
+    const m = $('po-mode');
+    m.textContent = customized ? '✏️ 직접 편집됨' : '🔗 학생 목록과 연동';
+    m.classList.toggle('custom', customized);
+  }
+  function markCustom(){ customized = true; updateMode(); }
+  function refresh(){
+    $('po-roster').classList.toggle('disabled', !draft.roster);
+    box.querySelectorAll('#po-side button').forEach(b=>b.classList.toggle('active', b.dataset.side===draft.side));
+    $('po-hint').textContent = draft.roster
+      ? `배치도 ${draft.side==='left'?'왼쪽':'오른쪽'}에 명렬표가 함께 인쇄됩니다`
+      : '명렬표를 끄면 자리 배치도만 인쇄됩니다';
+    updateMode();
+  }
+  // ── 행 드래그 앤 드롭 (마우스·터치 모두) ──
+  function startDrag(e, from, tr){
+    if(e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    const tbody = $('po-tbody'), wrapEl = box.querySelector('.po-table-wrap');
+    const trs = [...tbody.children];
+    let to = from;
+    tr.classList.add('po-dragging');
+    const handle = e.currentTarget;
+    try{ handle.setPointerCapture(e.pointerId); }catch(_){}
+    const clearMarks = ()=>trs.forEach(r=>r.classList.remove('po-drop-before','po-drop-after'));
+    const onMove = ev=>{
+      // 가장자리에서 자동 스크롤
+      const wr = wrapEl.getBoundingClientRect();
+      if(ev.clientY < wr.top + 24) wrapEl.scrollTop -= 8;
+      else if(ev.clientY > wr.bottom - 24) wrapEl.scrollTop += 8;
+      // 삽입 위치 = 포인터보다 중간선이 아래에 있는 첫 행
+      to = trs.length;
+      for(let k=0;k<trs.length;k++){
+        const r = trs[k].getBoundingClientRect();
+        if(ev.clientY < r.top + r.height/2){ to = k; break; }
+      }
+      clearMarks();
+      if(to < trs.length) trs[to].classList.add('po-drop-before');
+      else trs[trs.length-1].classList.add('po-drop-after');
+    };
+    const onUp = ()=>{
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+      clearMarks(); tr.classList.remove('po-dragging');
+      let dest = to > from ? to - 1 : to;
+      if(dest === from) return;
+      // 번호가 1,2,3… 순서 그대로였다면 옮긴 뒤에도 순서대로 다시 매김
+      const sequential = rows.every((r,k)=>String(r.no).trim() === String(k+1));
+      const [moved] = rows.splice(from,1);
+      rows.splice(dest,0,moved);
+      if(sequential) rows.forEach((r,k)=>r.no = String(k+1));
+      markCustom(); renderTable();
+    };
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+  }
+
+  function renderTable(){
+    const showExtra = !!draft.extraCol.trim();
+    $('po-thead').innerHTML = `<tr><th style="width:28px"></th><th style="width:64px;text-align:center">번호</th><th>이름</th>${showExtra?`<th>${esc(draft.extraCol.trim())}</th>`:''}<th style="width:34px"></th></tr>`;
+    const tbody = $('po-tbody');
+    tbody.innerHTML = '';
+    if(!rows.length){
+      tbody.innerHTML = `<tr><td colspan="5" class="po-empty">학생 목록이 비어 있어요 — 파일을 불러오거나 행을 추가하세요</td></tr>`;
+      return;
+    }
+    rows.forEach((r,i)=>{
+      const tr = document.createElement('tr');
+      const mk = (key, cls, max)=>{
+        const td = document.createElement('td');
+        const inp = document.createElement('input');
+        inp.className = 'po-cell' + (cls ? ' '+cls : '');
+        inp.value = r[key] || '';
+        inp.maxLength = max;
+        inp.oninput = ()=>{ rows[i][key] = inp.value; markCustom(); };
+        inp.onkeydown = e=>{
+          if(e.key==='Enter'){
+            e.preventDefault();
+            const next = tbody.children[i+1]?.querySelector(`td:nth-child(${inp.parentNode.cellIndex+1}) input`);
+            if(next) next.focus();
+          }
+        };
+        td.appendChild(inp);
+        return td;
+      };
+      const hd = document.createElement('td');
+      hd.className = 'po-handle'; hd.textContent = '⠿'; hd.title = '끌어서 순서 바꾸기';
+      hd.onpointerdown = e=>startDrag(e, i, tr);
+      tr.appendChild(hd);
+      tr.appendChild(mk('no','po-no',10));
+      tr.appendChild(mk('name','',50));
+      if(showExtra) tr.appendChild(mk('extra','',50));
+      const td = document.createElement('td');
+      const del = document.createElement('button');
+      del.className = 'btn-del'; del.textContent = '✕'; del.title = '행 삭제';
+      del.onclick = ()=>{ rows.splice(i,1); markCustom(); renderTable(); };
+      td.appendChild(del); tr.appendChild(td);
+      tbody.appendChild(tr);
+    });
+  }
+
+  enableEl.onchange = ()=>{ draft.roster = enableEl.checked; refresh(); };
+  box.querySelectorAll('#po-side button').forEach(b=>b.onclick = ()=>{ draft.side = b.dataset.side; refresh(); });
+  titleEl.oninput = ()=>{ draft.title = titleEl.value; };
+  extraEl.oninput = ()=>{ draft.extraCol = extraEl.value; renderTable(); };
+  $('po-add').onclick = ()=>{
+    rows.push({ no:String(rows.length+1), name:'', extra:'' });
+    markCustom(); renderTable();
+    const inputs = $('po-tbody').querySelectorAll('tr:last-child input');
+    if(inputs[1]) inputs[1].focus();
+  };
+  $('po-reset').onclick = ()=>{
+    if(customized && !confirm('직접 고친 명렬표를 버리고 학생 목록으로 되돌릴까요?')) return;
+    rows = rosterFromStudents();
+    if(!draft.extraCol.trim() && rows.some(r=>r.extra)){ draft.extraCol = '비고'; extraEl.value = draft.extraCol; }
+    customized = false; renderTable(); updateMode();
+  };
+
+  function commit(){
+    printOpts.roster = draft.roster;
+    printOpts.side = draft.side;
+    printOpts.title = draft.title.substring(0,40);
+    printOpts.extraCol = draft.extraCol.substring(0,20);
+    rosterRows = customized ? rows.map(r=>({ no:r.no, name:r.name, extra:r.extra })) : null;
+    savePrintOpts();
+  }
+  bd.onclick = closePrintOptions;
+  $('po-cancel').onclick = closePrintOptions;
+  $('po-save').onclick = ()=>{ commit(); closePrintOptions(); showToast('🖨 인쇄 옵션 저장됨'); };
+  $('po-print').onclick = ()=>{
+    commit(); closePrintOptions();
+    // 모달이 닫힌 뒤 인쇄 (모달이 인쇄물에 찍히지 않도록)
+    setTimeout(()=>{ printOpts.roster ? printWithRoster() : printGrid(); }, 50);
+  };
+  box.addEventListener('keydown', e=>{ if(e.key==='Escape') closePrintOptions(); });
+
+  refresh();
+  renderTable();
+}
+
+function cleanupPrintSheet(){
+  document.getElementById('print-sheet')?.remove();
+  document.body.classList.remove('print-sheet-mode');
+}
+
+// 명렬표 + 자리 배치도를 한 장에 인쇄 (A4 가로)
+function printWithRoster(){
+  cleanupPrintSheet();
+  const list = getRosterRows().filter(r=>(r.name||'').trim() || (r.no||'').trim());
+  if(!list.length){ printGrid(); return; } // 명렬표가 비어 있으면 배치도만
+
+  const cols = +document.getElementById('cols').value;
+  const rows = +document.getElementById('rows').value;
+  const PAGE_W = 980, PAGE_H = 640;
+  const COL_GAP = 16, ROW_GAP = 12, DESK_H = 40, DESK_MB = 12, SIDE_GAP = 28;
+  const TITLE_H = 36, HEAD_H = 24;
+  const showExtra = !!printOpts.extraCol.trim();
+
+  // ── 명렬표 크기: 한 줄 높이가 너무 작아지면 2~3단으로 나눔
+  const availRH = PAGE_H - TITLE_H - HEAD_H;
+  let rosterCols = 1, rowH = 24;
+  for(rosterCols = 1; rosterCols <= 3; rosterCols++){
+    rowH = Math.floor(availRH / Math.ceil(list.length / rosterCols));
+    if(rowH >= 16 || rosterCols === 3) break;
+  }
+  rowH = Math.max(11, Math.min(26, rowH));
+  const fs = Math.max(8, Math.min(14, Math.round(rowH * 0.62)));
+  const numW = Math.round(fs * 3.2), nameW = Math.round(fs * 7), extraW = showExtra ? Math.round(fs * 6) : 0;
+  const tableW = numW + nameW + extraW;
+  const rosterW = tableW * rosterCols + 8 * (rosterCols - 1);
+
+  // ── 자리 배치도 크기 (남은 폭 안에서)
+  const gridAvailW = PAGE_W - rosterW - SIDE_GAP;
+  const cellByW = Math.floor((gridAvailW - COL_GAP * (cols - 1)) / cols);
+  const availH  = PAGE_H - DESK_H - DESK_MB - ROW_GAP * (rows - 1);
+  const cellByH = Math.floor(availH / rows / 0.55);
+  const cellW   = Math.max(30, Math.min(cellByW, cellByH));
+  const cellH   = Math.round(cellW * 0.55);
+  const gridW   = cellW * cols + COL_GAP * (cols - 1);
+
+  const sheet = document.createElement('div');
+  sheet.id = 'print-sheet';
+  // 좌석 블록·명렬표 모두 일반·뒤집기 상관없이 용지 위아래 가운데
+  sheet.style.cssText = `display:flex;align-items:flex-start;justify-content:center;gap:${SIDE_GAP}px;height:186mm;width:100%;color:#1a1a1a;background:#fff;font-family:'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕','Noto Sans KR',sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
+
+  // 자리 배치도
+  const seatArea = document.createElement('div');
+  seatArea.style.cssText = 'display:flex;flex-direction:column;align-items:center;align-self:center;';
+  const desk = document.createElement('div');
+  desk.textContent = '🏫 교탁';
+  desk.style.cssText = `width:${Math.min(300, Math.round(gridW * 0.33))}px;height:${DESK_H}px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:2px solid #999;border-radius:8px;background:#f5f5f5;color:#333;font-weight:700;letter-spacing:3px;font-size:${Math.max(9, Math.round(cellW * 0.15))}px;box-sizing:border-box;`;
+  const grid = document.createElement('div');
+  grid.style.cssText = `display:grid;grid-template-columns:repeat(${cols},${cellW}px);gap:${ROW_GAP}px ${COL_GAP}px;`;
+  document.querySelectorAll('#seat-grid .seat-cell').forEach(src=>{
+    const cell = document.createElement('div');
+    const blocked = src.classList.contains('blocked');
+    cell.style.cssText = `width:${cellW}px;height:${cellH}px;box-sizing:border-box;border:1.5px ${blocked ? 'dashed' : 'solid'} #aaa;border-radius:6px;background:${blocked ? '#e5e5e5' : '#f9f9f9'};display:flex;align-items:center;justify-content:center;overflow:hidden;`;
+    const span = document.createElement('span');
+    if(blocked){
+      span.textContent = '✕';
+      span.style.cssText = `color:#999;font-size:${Math.round(cellW * 0.27)}px;line-height:1;`;
+    } else {
+      const nameEl = src.querySelector('.seat-name');
+      span.textContent = nameEl ? nameEl.textContent : '';
+      span.style.cssText = `font-size:${Math.round(cellW * 0.19)}px;font-weight:600;line-height:1.2;text-align:center;padding:0 4px;word-break:keep-all;`;
+    }
+    cell.appendChild(span);
+    grid.appendChild(cell);
+  });
+  if(isFlipped){
+    desk.style.marginTop = DESK_MB + 'px';
+    seatArea.append(grid, desk);
+  } else {
+    desk.style.marginBottom = DESK_MB + 'px';
+    seatArea.append(desk, grid);
+  }
+
+  // 명렬표
+  const roster = document.createElement('div');
+  roster.style.cssText = `width:${rosterW}px;flex-shrink:0;align-self:center;`;
+  const title = document.createElement('div');
+  title.textContent = printOpts.title.trim() || '명렬표';
+  title.style.cssText = `height:${TITLE_H - 10}px;margin-bottom:10px;display:flex;align-items:center;justify-content:center;font-size:${Math.max(13, fs + 4)}px;font-weight:800;letter-spacing:1px;color:#111;border-bottom:2.5px solid #222;white-space:nowrap;overflow:hidden;`;
+  roster.appendChild(title);
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;gap:8px;align-items:flex-start;';
+  const per = Math.ceil(list.length / rosterCols);
+  const cellCss = `border:1px solid #d3d7de;padding:0 4px;height:${rowH}px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;vertical-align:middle;`;
+  for(let c = 0; c < rosterCols; c++){
+    const chunk = list.slice(c * per, (c + 1) * per);
+    if(!chunk.length) break;
+    // 둥근 테두리 박스 안에 표 (바깥쪽 칸 테두리는 숨김)
+    const box = document.createElement('div');
+    box.style.cssText = `width:${tableW}px;border:1.5px solid #3a3f47;border-radius:7px;overflow:hidden;`;
+    const tb = document.createElement('table');
+    tb.style.cssText = `border-collapse:collapse;border-style:hidden;table-layout:fixed;width:100%;font-size:${fs}px;`;
+    const head = document.createElement('tr');
+    const heads = [['번호', numW], ['이름', nameW]];
+    if(showExtra) heads.push([printOpts.extraCol.trim(), extraW]);
+    heads.forEach(([txt, w])=>{
+      const th = document.createElement('th');
+      th.textContent = txt;
+      th.style.cssText = `${cellCss}width:${w}px;height:${HEAD_H}px;background:#eef1f5;color:#222;font-weight:700;border-bottom:1.5px solid #3a3f47;`;
+      head.appendChild(th);
+    });
+    tb.appendChild(head);
+    chunk.forEach((r, k)=>{
+      const tr = document.createElement('tr');
+      const bg = k % 2 ? '#f7f8fa' : '#fff';
+      const vals = [[r.no, 'color:#6b7280;font-weight:600;'], [r.name, 'font-weight:600;color:#111;']];
+      if(showExtra) vals.push([r.extra, 'color:#374151;']);
+      vals.forEach(([v, extra])=>{
+        const td = document.createElement('td');
+        td.textContent = v || '';
+        td.style.cssText = `${cellCss}background:${bg};${extra}`;
+        tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+    box.appendChild(tb);
+    wrap.appendChild(box);
+  }
+  roster.appendChild(wrap);
+
+  if(printOpts.side === 'left') sheet.append(roster, seatArea);
+  else sheet.append(seatArea, roster);
+
+  document.body.appendChild(sheet);
+  document.body.classList.add('print-sheet-mode');
+  window.addEventListener('afterprint', cleanupPrintSheet, { once:true });
+  window.print();
+}
 
 function printGrid(){
   const cols = +document.getElementById('cols').value;
@@ -1367,7 +1842,9 @@ function setMode(mode){
     if(cell) cell.classList.remove('swap-selected');
     swapFirst=null;
   }
-  editMode=mode; document.body.className=`mode-${mode}`;
+  editMode=mode;
+  document.body.classList.remove('mode-normal','mode-pin','mode-block');
+  document.body.classList.add(`mode-${mode}`);
   ['normal','pin'].forEach(m=>{
     const tab=document.getElementById(`tab-${m}`);
     if(tab) tab.classList.toggle('active',m===mode);
@@ -1408,22 +1885,11 @@ function processFile(file){
 function importNamesFromText(text, filename){
   // support: newline-separated, comma-separated, tab-separated
   // also handle CSV with quoted fields
-  let names = [];
   const ext = (filename||'').split('.').pop().toLowerCase();
-
-  if(ext === 'csv'){
-    // parse CSV — split by lines, then by first comma-or-tab delimiter
-    const lines = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-    lines.forEach(line=>{
-      // take only the first cell of each row (name column)
-      const cell = line.split(/,|\t/)[0].replace(/^"|"$/g,'').trim();
-      if(cell) names.push(cell);
-    });
-  } else {
-    // plain text: one name per line
-    names = text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
-  }
-  addNamesArray(names, filename);
+  const lines = text.replace(/^\uFEFF/,'').split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+  // csv: 쉼표/탭으로 칸 나눔, txt: 탭으로만 (엑셀에서 복사해 붙인 경우)
+  const entries = lines.map(line=>rowToEntry(line.split(ext === 'csv' ? /,|\t/ : /\t/)));
+  addNamesArray(entries, filename);
 }
 
 function importXlsx(file){
@@ -1434,7 +1900,7 @@ function importXlsx(file){
 
 // ── 순수 JS xlsx 파서 (외부 라이브러리 없음) ──
 // xlsx = ZIP 파일. ZIP 내부의 xl/sharedStrings.xml 에서 문자열을 추출.
-function parseXlsxBuffer(buffer, filename){
+async function parseXlsxBuffer(buffer, filename){
   try {
     const bytes = new Uint8Array(buffer);
 
@@ -1456,40 +1922,20 @@ function parseXlsxBuffer(buffer, filename){
 
     if(ssEntry){
       // sharedStrings에서 <t> 태그 값 추출
-      const xml = inflateEntry(bytes, ssEntry);
-      const matches = xml.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g);
-      const strings = [...matches].map(m => decodeXmlEntities(m[1].trim()));
-      // sheet1에서 첫 번째 열(A열) 셀만 수집
+      const xml = await inflateEntry(bytes, ssEntry);
+      // <si> 하나 = 문자열 하나 (서식이 섞인 셀은 여러 <t>를 이어 붙임)
+      const strings = [...xml.matchAll(/<si>([\s\S]*?)<\/si>/g)].map(si =>
+        decodeXmlEntities([...si[1].matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)].map(t=>t[1]).join('').trim()));
+      // sheet1을 행 단위로 읽음 (A열 번호 + B열 이름 형식도 지원)
       if(sheetEntry){
-        const sheetXml = inflateEntry(bytes, sheetEntry);
-        // A열 셀: r="A숫자"
-        const cellMatches = sheetXml.matchAll(/<c r="A\d+"[^>]*>([\s\S]*?)<\/c>/g);
-        for(const cm of cellMatches){
-          const cellXml = cm[1];
-          // t="s" → shared string index
-          const tAttr = cm[0].match(/t="([^"]*)"/);
-          const vMatch = cellXml.match(/<v>(\d+)<\/v>/);
-          if(tAttr && tAttr[1]==='s' && vMatch){
-            const idx = parseInt(vMatch[1]);
-            if(strings[idx]) names.push(strings[idx]);
-          } else {
-            // inline string
-            const inlineMatch = cellXml.match(/<t[^>]*>([\s\S]*?)<\/t>/);
-            if(inlineMatch) names.push(decodeXmlEntities(inlineMatch[1].trim()));
-          }
-        }
+        names = readSheetRows(await inflateEntry(bytes, sheetEntry), strings).map(rowToEntry);
       } else {
         // sheet 없으면 sharedStrings 전체를 이름으로 사용
         names = strings.filter(Boolean);
       }
     } else if(sheetEntry){
       // sharedStrings 없는 경우 (모든 값이 inline)
-      const sheetXml = inflateEntry(bytes, sheetEntry);
-      const cellMatches = sheetXml.matchAll(/<c r="A\d+"[^>]*>([\s\S]*?)<\/c>/g);
-      for(const cm of cellMatches){
-        const inlineMatch = cm[1].match(/<t[^>]*>([\s\S]*?)<\/t>/);
-        if(inlineMatch) names.push(decodeXmlEntities(inlineMatch[1].trim()));
-      }
+      names = readSheetRows(await inflateEntry(bytes, sheetEntry), []).map(rowToEntry);
     } else {
       showToast('xlsx 구조를 읽을 수 없어요. csv나 txt를 사용해 주세요.');
       return;
@@ -1503,88 +1949,105 @@ function parseXlsxBuffer(buffer, filename){
 }
 
 function readZipEntries(bytes){
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const u16 = o=>dv.getUint16(o,true), u32 = o=>dv.getUint32(o,true);
+  const dec = new TextDecoder();
+  // 1순위: 중앙 디렉터리(정확한 크기 정보) 사용
+  for(let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i--){
+    if(u32(i) !== 0x06054b50) continue;
+    const count = u16(i+10);
+    let p = u32(i+16);
+    const entries = [];
+    for(let k = 0; k < count && p + 46 <= bytes.length && u32(p) === 0x02014b50; k++){
+      const compression = u16(p+10), compSize = u32(p+20), uncompSize = u32(p+24);
+      const nameLen = u16(p+28), extraLen = u16(p+30), commentLen = u16(p+32), local = u32(p+42);
+      const name = dec.decode(bytes.subarray(p+46, p+46+nameLen));
+      const dataStart = local + 30 + u16(local+26) + u16(local+28);
+      entries.push({ name, compression, compSize, uncompSize, dataStart });
+      p += 46 + nameLen + extraLen + commentLen;
+    }
+    if(entries.length) return entries;
+  }
+  // 2순위: 로컬 헤더 순차 탐색
   const entries = [];
   let i = 0;
-  while(i < bytes.length - 4){
-    // Local file header signature
-    if(bytes[i]===0x50 && bytes[i+1]===0x4B && bytes[i+2]===0x03 && bytes[i+3]===0x04){
-      const compression  = bytes[i+8]  | (bytes[i+9]  << 8);
-      const compSize     = bytes[i+18] | (bytes[i+19]<<8) | (bytes[i+20]<<16) | (bytes[i+21]<<24);
-      const uncompSize   = bytes[i+22] | (bytes[i+23]<<8) | (bytes[i+24]<<16) | (bytes[i+25]<<24);
-      const nameLen      = bytes[i+26] | (bytes[i+27]<<8);
-      const extraLen     = bytes[i+28] | (bytes[i+29]<<8);
-      const nameBytes    = bytes.slice(i+30, i+30+nameLen);
-      const name         = new TextDecoder().decode(nameBytes);
-      const dataStart    = i + 30 + nameLen + extraLen;
+  while(i < bytes.length - 30){
+    if(u32(i) === 0x04034b50){
+      const compression = u16(i+8), compSize = u32(i+18), uncompSize = u32(i+22);
+      const nameLen = u16(i+26), extraLen = u16(i+28);
+      const name = dec.decode(bytes.subarray(i+30, i+30+nameLen));
+      const dataStart = i + 30 + nameLen + extraLen;
       entries.push({ name, compression, compSize, uncompSize, dataStart });
-      i = dataStart + compSize;
+      i = dataStart + Math.max(compSize, 1);
     } else { i++; }
   }
   return entries;
 }
 
-function inflateEntry(bytes, entry){
+// 압축 해제 — 브라우저 내장 DecompressionStream 사용 (외부 연결 없음)
+async function inflateEntry(bytes, entry){
   const raw = bytes.slice(entry.dataStart, entry.dataStart + entry.compSize);
-  if(entry.compression === 0){
-    // stored (no compression)
-    return new TextDecoder().decode(raw);
-  } else if(entry.compression === 8){
-    // deflate — use DecompressionStream (supported in all modern browsers)
-    const ds = new DecompressionStream('deflate-raw');
-    const writer = ds.writable.getWriter();
-    const reader = ds.readable.getReader();
-    writer.write(raw); writer.close();
-    // sync-like read via concatenation
-    const chunks = [];
-    let done = false;
-    // We need synchronous result — fall back to a small sync inflate
-    // Since DecompressionStream is async, use synchronous fallback for small files
-    return inflateSyncFallback(raw);
-  }
-  return '';
-}
-
-// Minimal synchronous DEFLATE using DecompressionStream via SharedArrayBuffer trick
-// Falls back to showing error for very large files
-function inflateSyncFallback(deflated){
-  // Use XMLHttpRequest trick: create a gzip blob and decode
-  // Prepend minimal gzip header (ID1 ID2 CM FLG MTIME XFL OS)
-  const gzip = new Uint8Array(10 + deflated.length + 8);
-  gzip[0]=0x1f; gzip[1]=0x8b; gzip[2]=0x08; gzip[3]=0x00;
-  // MTIME=0, XFL=0, OS=255
-  gzip[9]=0xff;
-  gzip.set(deflated, 10);
-  // CRC32 and size (we'll leave as 0 — browsers tolerate this)
-  // Try via blob + synchronous XHR
-  try {
-    const blob = new Blob([gzip], {type:'application/gzip'});
-    const url  = URL.createObjectURL(blob);
-    const xhr  = new XMLHttpRequest();
-    xhr.open('GET', url, false); // synchronous
-    xhr.overrideMimeType('text/plain; charset=x-user-defined');
-    xhr.send();
-    URL.revokeObjectURL(url);
-    // Convert latin1 response to utf-8 bytes then decode
-    const res = xhr.responseText;
-    const arr = new Uint8Array(res.length);
-    for(let i=0;i<res.length;i++) arr[i]=res.charCodeAt(i)&0xff;
-    return new TextDecoder('utf-8').decode(arr);
-  } catch(e){
-    throw new Error('xlsx 압축 해제 실패 (브라우저가 지원하지 않습니다). csv/txt를 사용해 주세요.');
-  }
+  if(entry.compression === 0) return new TextDecoder('utf-8').decode(raw);
+  if(entry.compression !== 8) throw new Error('지원하지 않는 압축 방식');
+  if(typeof DecompressionStream === 'undefined')
+    throw new Error('이 브라우저는 xlsx 압축 해제를 지원하지 않아요. 최신 크롬/엣지를 쓰거나 csv로 저장해 주세요.');
+  const stream = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  const buf = await new Response(stream).arrayBuffer();
+  return new TextDecoder('utf-8').decode(buf);
 }
 
 function decodeXmlEntities(s){
-  return s.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
+  return s.replace(/&#x([0-9a-f]+);/gi,(_,h)=>String.fromCodePoint(parseInt(h,16)))
+    .replace(/&#(\d+);/g,(_,d)=>String.fromCodePoint(parseInt(d,10)))
+    .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'");
 }
 
+// ── 이름 한 줄 해석: "3 김민준", "3. 김민준", "3번 김민준", "03)김민준" → 번호 3 / 이름 김민준
+function parseEntry(str){
+  const t = String(str||'').replace(/^"|"$/g,'').trim();
+  const m = t.match(/^(\d{1,4})\s*(?:번\s*|[.)\]:\-]\s*|\s+)(\S.*)$/);
+  if(m) return { no:String(parseInt(m[1],10)), name:m[2].trim() };
+  return { no:'', name:t };
+}
+// 여러 칸으로 된 행: [번호, 이름, ...] 이면 번호로 사용, 아니면 첫 칸을 해석
+function rowToEntry(cells){
+  const c = (cells||[]).map(v=>String(v==null?'':v).replace(/^"|"$/g,'').trim());
+  // 머리글 행 (번호 / 이름 …) 은 건너뜀
+  if(c.some(v=>/^(번호|순번|no\.?|이름|성명|학생명|name)$/i.test(v))) return { no:'', name:'' };
+  if(/^\d{1,4}(\.0+)?$/.test(c[0]||'') && c[1]) return { no:String(parseInt(c[0],10)), name:c[1] };
+  const first = c.find(v=>v) || '';
+  return parseEntry(first);
+}
+// xlsx 시트 XML → [[A,B,C…], …]
+function readSheetRows(sheetXml, strings){
+  const rows = {};
+  const colIdx = letters=>[...letters].reduce((n,ch)=>n*26 + ch.charCodeAt(0)-64, 0) - 1;
+  for(const m of sheetXml.matchAll(/<c r="([A-Z]+)(\d+)"([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)){
+    const [, col, rowNo, attrs, inner=''] = m;
+    const type = (attrs.match(/t="([^"]*)"/)||[])[1];
+    let val = '';
+    const v = inner.match(/<v>([\s\S]*?)<\/v>/);
+    if(type === 's' && v) val = strings[parseInt(v[1],10)] || '';
+    else if(type === 'inlineStr') val = decodeXmlEntities([...inner.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)].map(t=>t[1]).join(''));
+    else if(type === 'str' && v) val = decodeXmlEntities(v[1]);
+    else if(v) val = v[1];
+    (rows[rowNo] = rows[rowNo] || [])[colIdx(col)] = val;
+  }
+  return Object.keys(rows).sort((a,b)=>a-b).map(k=>rows[k]);
+}
+const HEADER_WORDS = ['이름','성명','학생','학생명','name'];
+
 function addNamesArray(names, filename){
-  if(!names.length){ showToast('이름을 찾을 수 없어요'); return; }
-  const added = names.filter(name=>{
+  // 문자열 또는 {no,name} 모두 받음. 머리글 행(번호/이름)은 건너뜀
+  const entries = names.map(n=>typeof n === 'string' ? parseEntry(n) : n)
+    .map(e=>({ no:e.no||'', name:(e.name||'').substring(0,50) }))
+    .filter(e=>e.name && !HEADER_WORDS.includes(e.name.toLowerCase()));
+  if(!entries.length){ showToast('이름을 찾을 수 없어요'); return; }
+  const added = entries.filter(({no,name})=>{
     if(students.find(s=>s.name===name)) return false;
-    students.push({name, frontFixed:false}); return true;
+    students.push({name, frontFixed:false, no}); return true;
   });
-  const skipped = names.length - added.length;
+  const skipped = entries.length - added.length;
   renderStudentList(); updateCondSelects(); updatePinSelect();
   const msg = skipped > 0
     ? `📂 ${added.length}명 추가됨 (중복 ${skipped}명 제외)`
@@ -1599,14 +2062,10 @@ function handleBulkKey(e){
 }
 function addBulk(){
   const ta=document.getElementById('bulk-input');
-  const lines=ta.value.split('\n').map(s=>s.trim().substring(0,50)).filter(Boolean);
-  const added=lines.filter(name=>{
-    if(students.find(s=>s.name===name)) return false;
-    students.push({name,frontFixed:false}); return true;
-  });
+  const lines=ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!lines.length) return;
   ta.value='';
-  renderStudentList(); updateCondSelects(); updatePinSelect();
-  showToast(`${added.length}명 추가됨`);
+  addNamesArray(lines.map(l=>rowToEntry(l.split('\t'))));
 }
 function toggleBulk(){
   const area = document.getElementById('bulk-area');
@@ -1801,6 +2260,7 @@ function resetSeats(){
 function clearAll(){
   if(!confirm('학생 목록, 빈자리 설정, 지정석을 모두 초기화할까요?')) return;
   students=[];conditions=[];blockedSeats.clear();
+  rosterRows=null;
   Object.keys(pinnedSeats).forEach(k=>delete pinnedSeats[k]);
   currentAssignment=null;
   renderStudentList();updateCondSelects();updatePinSelect();renderCondChips();buildGrid();
