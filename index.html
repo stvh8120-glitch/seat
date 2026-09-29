@@ -410,30 +410,61 @@ body.light .file-drop-zone{ border-color:#94a3b8; }
 .classroom-wrap{flex:1;position:relative;display:flex;flex-direction:column;min-height:0;}
 .classroom-wrap > .classroom-area{flex:1;min-height:0;}
 .seat-stats{
-  position:absolute;right:16px;bottom:12px;z-index:5;
-  background:color-mix(in srgb, var(--surface) 92%, transparent);
+  position:absolute;right:14px;bottom:12px;z-index:5;
+  display:flex;align-items:center;gap:10px;
+  background:color-mix(in srgb, var(--surface) 90%, transparent);
   backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
-  border:1px solid var(--border);border-radius:12px;padding:8px 12px;
-  box-shadow:0 8px 24px rgba(0,0,0,.25);min-width:180px;
-  display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text);
-  pointer-events:none;user-select:none;
+  border:1px solid var(--border);border-radius:999px;padding:5px 6px 5px 14px;
+  box-shadow:0 6px 18px rgba(0,0,0,.22);
+  font-size:12px;color:var(--text);white-space:nowrap;
+  pointer-events:none;user-select:none;transition:opacity .2s;
 }
-.ss-main{display:flex;gap:16px;align-items:flex-end;}
-.ss-item{display:flex;flex-direction:column;gap:1px;}
-.ss-label{font-size:10.5px;color:var(--text-muted);letter-spacing:.3px;}
-.ss-val{font-family:var(--font-mono);font-size:19px;font-weight:700;line-height:1.1;}
-.ss-val small{font-size:12px;font-weight:600;color:var(--text-muted);margin-left:1px;}
-.ss-sub{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);}
-.ss-sub b{color:var(--text);font-weight:700;margin-left:2px;}
-.ss-status{font-size:11px;font-weight:700;padding:3px 8px;border-radius:7px;text-align:center;}
+.seat-stats.overlap{opacity:.55;}
+.seat-stats.overlap:hover{opacity:1;}
+.ss-toggle{pointer-events:auto;cursor:pointer;font-family:inherit;border:none;}
+.ss-close{
+  width:24px;height:24px;border-radius:50%;margin-left:-4px;padding:0;
+  background:transparent;color:var(--text-muted);line-height:1;
+  display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;
+}
+.ss-close:hover{background:var(--surface2);color:var(--text);}
+.ss-open{display:none;}
+/* 접힌 상태: 작은 동그란 버튼만 */
+.seat-stats.collapsed{padding:0;gap:0;background:transparent;border:none;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;}
+.seat-stats.collapsed > :not(.ss-open){display:none !important;}
+.seat-stats.collapsed .ss-open{
+  display:flex;align-items:center;justify-content:center;position:relative;
+  width:40px;height:40px;border-radius:50%;padding:0;color:var(--text);
+  background:color-mix(in srgb, var(--surface) 92%, transparent);
+  border:1px solid var(--border);box-shadow:0 6px 18px rgba(0,0,0,.22);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  transition:transform .15s,border-color .15s;animation:pop-in .2s ease;
+}
+.seat-stats.collapsed .ss-open:hover{transform:scale(1.07);border-color:var(--accent3);color:var(--accent3);}
+.ss-dot{position:absolute;top:2px;right:2px;width:10px;height:10px;border-radius:50%;border:2px solid var(--surface);}
+.ss-dot.ok{background:var(--accent);}
+.ss-dot.info{background:var(--accent3);}
+.ss-dot.warn{background:#f87171;}
+.ss-item{display:flex;align-items:baseline;gap:4px;}
+.ss-label{font-size:11px;color:var(--text-muted);}
+.ss-val{font-family:var(--font-mono);font-size:15px;font-weight:700;}
+.ss-val small{font-size:11px;font-weight:600;color:var(--text-muted);margin-left:1px;}
+.ss-sep{width:1px;height:14px;background:var(--border);}
+.ss-sub{font-size:11px;color:var(--text-muted);display:flex;gap:9px;}
+.ss-sub > span{display:inline-flex;align-items:center;gap:3px;}
+.ss-sub svg{opacity:.8;}
+.ss-sub b{color:var(--text);font-weight:700;}
+.ss-status{font-size:11px;font-weight:700;padding:4px 10px 4px 8px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;}
 .ss-status.ok{background:rgba(74,222,128,.13);color:var(--accent);}
 .ss-status.info{background:rgba(96,165,250,.13);color:var(--accent3);}
 .ss-status.warn{background:rgba(248,113,113,.15);color:#f87171;}
 body.light .ss-status.warn{color:#dc2626;}
+@media(max-width:900px){ .ss-sub,.ss-sub + .ss-sep{display:none;} }
 @media(max-width:640px){
-  .seat-stats{right:10px;bottom:10px;min-width:0;padding:8px 10px;gap:5px;}
-  .ss-val{font-size:18px;}
-  .ss-sub{display:none;}
+  .seat-stats{right:8px;bottom:8px;gap:7px;padding:4px 5px 4px 10px;}
+  .ss-label{font-size:10px;}
+  .ss-val{font-size:13px;}
+  .ss-status{padding:3px 8px;font-size:10.5px;}
 }
 
 /* flipped — 교탁이 아래로, 행 순서는 JS가 역순 처리 */
@@ -1721,11 +1752,7 @@ function fitCells(){
       ? sidebar.offsetWidth + 22 : 22;
   const availW = window.innerWidth - sidebarW - 24;
   // 모바일에서 사이드바는 overlay라 높이 계산에서 제외
-  // 우하단 좌석 현황 카드와 겹치지 않도록 아래쪽 공간 확보
-  const statsEl = document.getElementById('seat-stats');
-  const statsReserve = statsEl ? Math.max(statsEl.offsetHeight, isMobile ? 60 : 80) + 16 : 0;
-  area.style.paddingBottom = (statsReserve + 8) + 'px';
-  const availH = area.clientHeight - 32 - statsReserve;
+  const availH = area.clientHeight - 32 - 30; // 30px: 우하단 현황 알약 높이만큼만 여유
   const colGap = 16;
   const rowGap = 12;
   const RATIO  = 0.55;
@@ -2511,36 +2538,87 @@ function computeSeatStats(){
   }
   return { total, blocked, pinned, usable, seatsLeft, studentsLeft, seated, students:students.length, assigned:!!currentAssignment };
 }
+// 현황 알약 아이콘 (선 굵기·크기 통일, 색은 글자색을 따라감)
+const SS_ICON = {
+  // 좌석 배치: 교탁 + 2×2 좌석, 한 칸만 채움
+  seats: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="7.5" y="2.8" width="9" height="3.4" rx="1.2"/>
+    <rect x="3.5" y="9" width="7.2" height="5.2" rx="1.6"/>
+    <rect x="13.3" y="9" width="7.2" height="5.2" rx="1.6" fill="currentColor" fill-opacity=".6"/>
+    <rect x="3.5" y="16.6" width="7.2" height="5.2" rx="1.6"/>
+    <rect x="13.3" y="16.6" width="7.2" height="5.2" rx="1.6"/>
+  </svg>`,
+  chevron: `<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6l6 6-6 6"/></svg>`,
+  x: `<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>`,
+  pin: `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0113 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3" fill="currentColor" stroke="none"/></svg>`,
+  ok: `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`,
+  warn: `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5L2.8 19.5h18.4z"/><path d="M12 10v4.2"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg>`,
+  info: `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><circle cx="12" cy="7.6" r=".7" fill="currentColor"/></svg>`,
+};
+
 function updateSeatStats(){
   const el = document.getElementById('seat-stats');
   if(!el) return;
   const st = computeSeatStats();
   let status;
   if(!st.students){
-    status = ['info', '학생을 추가해 주세요'];
+    status = ['info', '학생 없음'];
   } else if(st.assigned){
     status = st.studentsLeft > 0
-      ? ['warn', `⚠ 자리 없는 학생 ${st.studentsLeft}명`]
-      : ['ok', `✓ 전원 배정 완료${st.seatsLeft ? ` · 빈자리 ${st.seatsLeft}` : ''}`];
+      ? ['warn', `미배정 ${st.studentsLeft}명`]
+      : ['ok', '전원 배정'];
   } else {
     const diff = st.seatsLeft - st.studentsLeft;
-    status = diff < 0 ? ['warn', `⚠ 자리 ${-diff}개 부족`]
-           : diff === 0 ? ['ok', '✓ 자리와 학생 수가 딱 맞아요']
-           : ['ok', `✓ 배정 후 빈자리 ${diff}개`];
+    status = diff < 0 ? ['warn', `자리 ${-diff}개 부족`]
+           : diff === 0 ? ['ok', '딱 맞음']
+           : ['ok', `${diff}자리 여유`];
   }
   el.innerHTML = `
-    <div class="ss-main">
-      <div class="ss-item"><span class="ss-label">남은 좌석</span><span class="ss-val">${st.seatsLeft}<small>석</small></span></div>
-      <div class="ss-item"><span class="ss-label">남은 학생</span><span class="ss-val">${st.studentsLeft}<small>명</small></span></div>
-    </div>
-    <div class="ss-sub">
-      <span>전체<b>${st.total}</b></span>
-      <span>✕<b>${st.blocked}</b></span>
-      <span>📍<b>${st.pinned}</b></span>
-      <span>학생<b>${st.students}</b></span>
-    </div>
-    <div class="ss-status ${status[0]}">${status[1]}</div>`;
+    <span class="ss-item"><span class="ss-label">남은 좌석</span><span class="ss-val">${st.seatsLeft}<small>석</small></span></span>
+    <span class="ss-sep"></span>
+    <span class="ss-item"><span class="ss-label">남은 학생</span><span class="ss-val">${st.studentsLeft}<small>명</small></span></span>
+    <span class="ss-sep"></span>
+    <span class="ss-sub"><span title="빈자리(✕)">${SS_ICON.x}<b>${st.blocked}</b></span><span title="지정석">${SS_ICON.pin}<b>${st.pinned}</b></span></span>
+    <span class="ss-sep"></span>
+    <span class="ss-status ${status[0]}">${SS_ICON[status[0]]}${status[1]}</span>
+    <button type="button" class="ss-toggle ss-close" title="현황 접기" aria-label="현황 접기">${SS_ICON.chevron}</button>
+    <button type="button" class="ss-toggle ss-open" title="좌석 현황 펼치기 — ${status[1]}" aria-label="좌석 현황 펼치기">
+      ${SS_ICON.seats}<span class="ss-dot ${status[0]}"></span>
+    </button>`;
+  el.classList.toggle('collapsed', statsCollapsed);
+  checkStatsOverlap();
 }
+// 접기/펼치기 (화면 설정이라 브라우저에 기억, 기본은 펼침)
+let statsCollapsed = false;
+try{ statsCollapsed = localStorage.getItem('statsCollapsed') === '1'; }catch(e){}
+function setStatsCollapsed(v){
+  statsCollapsed = v;
+  try{ localStorage.setItem('statsCollapsed', v ? '1' : '0'); }catch(e){}
+  const el = document.getElementById('seat-stats');
+  if(el) el.classList.toggle('collapsed', v);
+  requestAnimationFrame(checkStatsOverlap);
+}
+document.addEventListener('click', e=>{
+  if(e.target.closest('#seat-stats .ss-close')) setStatsCollapsed(true);
+  else if(e.target.closest('#seat-stats .ss-open')) setStatsCollapsed(false);
+});
+
+// 카드가 좌석과 겹치면 반투명하게
+function checkStatsOverlap(){
+  const el = document.getElementById('seat-stats');
+  if(!el) return;
+  const s = el.getBoundingClientRect();
+  const hit = [...document.querySelectorAll('#seat-grid .seat-cell, #desk-label')].some(c=>{
+    const r = c.getBoundingClientRect();
+    return !(r.right < s.left || r.left > s.right || r.bottom < s.top || r.top > s.bottom);
+  });
+  el.classList.toggle('overlap', hit);
+}
+window.addEventListener('resize', ()=>requestAnimationFrame(checkStatsOverlap));
+document.addEventListener('DOMContentLoaded', ()=>{
+  const area = document.getElementById('classroom-area');
+  if(area) area.addEventListener('scroll', checkStatsOverlap, { passive:true });
+});
 let _statsQueued = false;
 function queueSeatStats(){
   if(_statsQueued) return;
@@ -3207,7 +3285,7 @@ function showToast(msg){
 }
 
 // 좌석·학생이 바뀌는 모든 지점에서 현황 갱신
-['buildGrid','renderGrid','toggleBlocked','togglePinned','removePinnedForStudent','renderStudentList',
+['buildGrid','renderGrid','fitCells','toggleBlocked','togglePinned','removePinnedForStudent','renderStudentList',
  'resetSeats','renderEmptySeats','redrawAssignment','setAssignedState','restoreState'].forEach(name=>{
   const fn = window[name];
   if(typeof fn !== 'function') return;
