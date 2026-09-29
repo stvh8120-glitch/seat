@@ -403,6 +403,9 @@ body.light .file-drop-zone{ border-color:#94a3b8; }
   min-height:var(--desk-h);
   font-size:var(--desk-fs, 12px);
 }
+/* 이름 뒤 괄호 설명은 줄이 바뀌어도 한 덩어리로 */
+.seat-note{white-space:nowrap;display:inline-block;}
+
 /* ── 좌석 현황 (우하단) ── */
 .classroom-wrap{flex:1;position:relative;display:flex;flex-direction:column;min-height:0;}
 .classroom-wrap > .classroom-area{flex:1;min-height:0;}
@@ -644,6 +647,9 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
   }
   #seat-grid .seat-cell.blocked{background:#e5e5e5 !important;border-color:#aaa !important;border-style:dashed !important;}
   #seat-grid .seat-name{color:#000 !important;}
+  #seat-grid .seat-name .seat-note{color:#9ca3af !important;font-weight:500 !important;}
+  #seat-grid .seat-cell.print-dim .seat-name,
+  #seat-grid .seat-cell.print-dim .seat-name .seat-note{color:#9ca3af !important;font-weight:500 !important;}
   #seat-grid .seat-cell{animation:none !important;opacity:1 !important;transform:none !important;}
   #seat-grid .blocked-x{color:#999 !important;}
   .seat-num{color:#555 !important;}
@@ -666,7 +672,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
 .po-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1300;}
 .po-box{
   position:fixed;z-index:1301;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:min(600px,94vw);max-height:92vh;overflow:hidden;
+  width:min(600px,94vw);max-height:92vh;overflow-y:auto;
   display:flex;flex-direction:column;gap:12px;
   background:var(--surface);border:1px solid var(--border);border-radius:14px;
   padding:20px 22px;box-shadow:0 24px 60px rgba(0,0,0,.5);color:var(--text);
@@ -687,7 +693,7 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
 .po-fields label{flex:1;display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--text-muted);}
 .po-input{background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);padding:6px 9px;font-size:13px;font-family:inherit;outline:none;width:100%;}
 .po-input:focus{border-color:var(--accent3);}
-.po-table-wrap{overflow-y:auto;max-height:38vh;min-height:80px;border:1px solid var(--border);border-radius:8px;}
+.po-table-wrap{overflow-y:auto;max-height:30vh;min-height:80px;border:1px solid var(--border);border-radius:8px;}
 .po-table{width:100%;border-collapse:collapse;font-size:12px;}
 .po-table th{position:sticky;top:0;z-index:1;background:var(--surface2);color:var(--text-muted);font-weight:600;padding:6px 8px;text-align:left;border-bottom:1px solid var(--border);}
 .po-table td{padding:2px 4px;border-bottom:1px solid var(--border);}
@@ -705,6 +711,17 @@ body.po-drag-active, body.po-drag-active *{cursor:grabbing !important;}
 .po-empty{padding:18px !important;text-align:center;color:var(--text-muted);font-size:12px;}
 .po-hint{font-size:11px;color:var(--text-muted);}
 @media(max-width:600px){ .po-fields{flex-direction:column;} }
+.po-dim{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px;}
+.po-dim-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.po-dim-count{font-size:11px;font-weight:700;color:var(--accent3);margin-left:4px;}
+.po-link{background:none;border:none;color:var(--text-muted);font-size:11px;font-family:inherit;cursor:pointer;padding:2px 4px;text-decoration:underline;flex-shrink:0;}
+.po-link:hover{color:var(--text);}
+.po-chips{display:flex;flex-wrap:wrap;gap:6px;max-height:112px;overflow-y:auto;}
+.po-chip{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:16px;padding:4px 11px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .15s;}
+.po-chip .seat-note{opacity:.5;font-weight:500;}
+.po-chip:hover{border-color:var(--accent3);}
+.po-chip.on{background:transparent;border-style:dashed;color:var(--text-muted);opacity:.55;font-weight:500;}
+.po-chip.on::before{content:'◌ ';}
 /* 다듬기 */
 .po-box{gap:14px;padding:22px 24px 20px;border-radius:16px;}
 .po-head{display:flex;flex-direction:column;gap:3px;}
@@ -1165,6 +1182,21 @@ async function savePdf(){
 // 설정(켜기/위치/제목/추가 열)만 브라우저에 저장. 학생 이름은 저장하지 않음
 const printOpts = { roster:false, side:'right', title:'명렬표', extraCol:'' };
 let rosterRows = null; // null이면 학생 목록을 그대로 사용, 편집하면 커스텀 배열
+// 인쇄 시 이름 전체를 흐리게 할 학생 (학생 이름이므로 브라우저에 저장하지 않음)
+const dimNames = new Set();
+function isDimmed(full){ return !!full && dimNames.has(full); }
+function isDimmedRosterName(name){
+  if(!name) return false;
+  for(const full of dimNames){ if(splitNameNote(full).name === name.trim()) return true; }
+  return false;
+}
+// 좌석 칸 → 그 자리 학생 이름
+function seatStudentName(cell){
+  const r = +cell.dataset.r, c = +cell.dataset.c, k = `${r}-${c}`;
+  if(blockedSeats.has(k)) return '';
+  const v = pinnedSeats[k] || (currentAssignment && currentAssignment[r] ? currentAssignment[r][c] : '');
+  return v && v !== '__x__' ? v : '';
+}
 (function loadPrintOpts(){
   try{
     const o = JSON.parse(localStorage.getItem('printOpts') || 'null');
@@ -1184,6 +1216,12 @@ function splitNameNote(full){
   const m = String(full||'').match(/^(.*?)\s*[(（]([^()（）]*)[)）]\s*$/);
   if(m && m[1].trim()) return { name:m[1].trim(), note:m[2].trim() };
   return { name:String(full||'').trim(), note:'' };
+}
+// 좌석 이름 표시: "김민준(반장)" → 김민준 + <span class="seat-note">(반장)</span>
+function nameWithNoteHTML(full){
+  const p = splitNameNote(full);
+  if(!p.note) return esc(full);
+  return `${esc(p.name)}<span class="seat-note">(${esc(p.note)})</span>`;
 }
 function rosterFromStudents(){
   return students.map((s,i)=>{ const p = splitNameNote(s.name); return { no:s.no ? String(s.no) : String(i+1), name:p.name, extra:p.note }; });
@@ -1222,6 +1260,16 @@ function openPrintOptions(){
       </div>
       <span class="po-switch"><input type="checkbox" id="po-enable"><span class="po-slider"></span></span>
     </label>
+    <div class="po-dim">
+      <div class="po-dim-head">
+        <div>
+          <div class="po-switch-title">흐리게 인쇄할 학생 <span class="po-dim-count" id="po-dim-count"></span></div>
+          <div class="po-switch-desc">누른 학생은 이름 전체가 흐리게 인쇄돼요 · 기본은 괄호 부분만 흐리게</div>
+        </div>
+        <button type="button" class="po-link" id="po-dim-clear">모두 해제</button>
+      </div>
+      <div class="po-chips" id="po-chips"></div>
+    </div>
     <div class="po-roster" id="po-roster">
       <div class="po-row">
         <span class="po-label">명렬표 위치</span>
@@ -1376,7 +1424,29 @@ function openPrintOptions(){
     customized = false; renderTable(); updateMode();
   };
 
+  // 흐리게 인쇄할 학생 선택
+  const dimDraft = new Set([...dimNames].filter(n=>students.some(s=>s.name===n)));
+  function renderChips(){
+    const wrapEl = $('po-chips');
+    wrapEl.innerHTML = '';
+    if(!students.length){ wrapEl.innerHTML = '<span class="po-hint">학생 목록이 비어 있어요</span>'; }
+    students.forEach(st=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'po-chip' + (dimDraft.has(st.name) ? ' on' : '');
+      b.innerHTML = nameWithNoteHTML(st.name);
+      b.title = dimDraft.has(st.name) ? '다시 누르면 기본(괄호만 흐리게)' : '누르면 이름 전체를 흐리게 인쇄';
+      b.onclick = ()=>{ dimDraft.has(st.name) ? dimDraft.delete(st.name) : dimDraft.add(st.name); renderChips(); };
+      wrapEl.appendChild(b);
+    });
+    $('po-dim-count').textContent = dimDraft.size ? `${dimDraft.size}명` : '';
+    $('po-dim-clear').style.visibility = dimDraft.size ? 'visible' : 'hidden';
+  }
+  $('po-dim-clear').onclick = ()=>{ dimDraft.clear(); renderChips(); };
+  renderChips();
+
   function commit(){
+    dimNames.clear(); dimDraft.forEach(n=>dimNames.add(n));
     printOpts.roster = draft.roster;
     printOpts.side = draft.side;
     printOpts.title = draft.title.substring(0,40);
@@ -1461,8 +1531,17 @@ function printWithRoster(){
       span.style.cssText = `color:#999;font-size:${Math.round(cellW * 0.27)}px;line-height:1;`;
     } else {
       const nameEl = src.querySelector('.seat-name');
-      span.textContent = nameEl ? nameEl.textContent : '';
+      const full = nameEl ? nameEl.textContent : '';
+      const p = splitNameNote(full);
+      span.textContent = p.note ? p.name : full;
+      if(p.note){
+        const note = document.createElement('span');
+        note.textContent = `(${p.note})`;
+        note.style.cssText = 'color:#9ca3af;font-weight:500;white-space:nowrap;display:inline-block;';
+        span.appendChild(note);
+      }
       span.style.cssText = `font-size:${Math.round(cellW * 0.19)}px;font-weight:600;line-height:1.2;text-align:center;padding:0 4px;word-break:keep-all;`;
+      if(isDimmed(seatStudentName(src))){ span.style.color = '#9ca3af'; span.style.fontWeight = '500'; }
     }
     cell.appendChild(span);
     grid.appendChild(cell);
@@ -1507,8 +1586,11 @@ function printWithRoster(){
     chunk.forEach((r, k)=>{
       const tr = document.createElement('tr');
       const bg = k % 2 ? '#f7f8fa' : '#fff';
-      const vals = [[r.no, 'color:#6b7280;font-weight:600;'], [r.name, 'font-weight:600;color:#111;']];
-      if(showExtra) vals.push([r.extra, 'color:#374151;']);
+      const dim = isDimmedRosterName(r.name);
+      const vals = dim
+        ? [[r.no, 'color:#b6bcc6;font-weight:500;'], [r.name, 'color:#9ca3af;font-weight:500;']]
+        : [[r.no, 'color:#6b7280;font-weight:600;'], [r.name, 'font-weight:600;color:#111;']];
+      if(showExtra) vals.push([r.extra, dim ? 'color:#b6bcc6;' : 'color:#374151;']);
       vals.forEach(([v, extra])=>{
         const td = document.createElement('td');
         td.textContent = v || '';
@@ -1532,6 +1614,9 @@ function printWithRoster(){
 }
 
 function printGrid(){
+  // 흐리게 인쇄할 학생 표시 (인쇄 후 해제)
+  document.querySelectorAll('#seat-grid .seat-cell').forEach(c=>c.classList.toggle('print-dim', isDimmed(seatStudentName(c))));
+  window.addEventListener('afterprint', ()=>document.querySelectorAll('#seat-grid .print-dim').forEach(c=>c.classList.remove('print-dim')), { once:true });
   const cols = +document.getElementById('cols').value;
   const rows = +document.getElementById('rows').value;
 
@@ -1976,7 +2061,7 @@ function togglePinned(r,c,studentName){
 function applyPinnedStyle(cell,studentName){
   const r=+cell.dataset.r,c=+cell.dataset.c;
   cell.className='seat-cell pinned-seat';
-  cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span><span class="seat-corner-icon" style="color:var(--pinned-color)">📍</span><div class="seat-name" style="color:var(--pinned-color)">${esc(studentName)}</div>`;
+  cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span><span class="seat-corner-icon" style="color:var(--pinned-color)">📍</span><div class="seat-name" style="color:var(--pinned-color)">${nameWithNoteHTML(studentName)}</div>`;
 }
 function removePinnedForStudent(name){
   Object.keys(pinnedSeats).forEach(k=>{
@@ -2380,7 +2465,7 @@ function renderGrid(grid,rows,cols){
         cell.className=`seat-cell ${st&&st.frontFixed?'front-fixed-seat':'occupied'} animate`;
         cell.style.animationDelay=`${(r*cols+c)*20}ms`;
         if(st&&st.frontFixed){const ic=document.createElement('span');ic.className='seat-corner-icon';ic.textContent='📌';cell.appendChild(ic);}
-        const ne=document.createElement('div'); ne.className='seat-name'; ne.textContent=val; cell.appendChild(ne);
+        const ne=document.createElement('div'); ne.className='seat-name'; ne.innerHTML=nameWithNoteHTML(val); cell.appendChild(ne);
       } else { cell.className='seat-cell'; }
     }
   }
@@ -2636,6 +2721,7 @@ async function clearAll(){
   clearUndo();
   students=[];conditions=[];blockedSeats.clear();
   rosterRows=null;
+  dimNames.clear();
   Object.keys(pinnedSeats).forEach(k=>delete pinnedSeats[k]);
   currentAssignment=null;
   setAssignedState(false);
