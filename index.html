@@ -59,18 +59,39 @@ header{
 }
 .logo{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--accent);letter-spacing:-1px;}
 .logo span{color:var(--text-muted);font-weight:400;}
-.header-assign{
+.header-center{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  display:flex;align-items:center;gap:8px;
+}
+.header-reset{
+  display:none;
+  background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:9px;
+  padding:7px 14px;font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;
+  transition:border-color .2s,color .2s,transform .1s;
+}
+.header-reset:hover{border-color:var(--accent2);color:var(--accent2);}
+.header-reset:active{transform:scale(.97);}
+body.has-assignment .header-reset{display:inline-flex;align-items:center;gap:4px;animation:pop-in .25s ease;}
+/* 학생 선택 중: 옮길 수 있는 자리 강조 */
+body.seat-selecting #seat-grid .seat-cell:not(.swap-selected):not(.pinned-seat){cursor:pointer;}
+body.seat-selecting #seat-grid .seat-cell:not(.swap-selected):not(.pinned-seat):hover{
+  outline:2px dashed var(--accent);outline-offset:2px;
+}
+.header-assign{
   background:var(--accent);color:#0f1117;border:none;border-radius:9px;
   padding:7px 18px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;
   white-space:nowrap;transition:background .2s,transform .1s;
 }
 .header-assign:hover{background:#86efac;}
-.header-assign:active{transform:translate(-50%,-50%) scale(.97);}
+.header-assign:active{transform:scale(.97);}
 body.light .header-assign:hover{background:#22c55e;}
 @media(max-width:600px){
   .header-sub{display:none;}
   .header-assign{padding:7px 12px;}
+  .header-reset{padding:7px 10px;}
+  /* 좁은 화면 + 배정 후: 두 버튼 모두 아이콘만 */
+  body.has-assignment .header-center .ha-label{display:none;}
+  body.has-assignment .header-assign{padding:7px 12px;}
 }
 @media(max-width:360px){ .ha-label{display:none;} }
 .theme-toggle{
@@ -689,6 +710,39 @@ body.po-drag-active, body.po-drag-active *{cursor:grabbing !important;}
   body.print-sheet-mode #print-sheet{position:static;left:auto;display:flex !important;}
 }
 
+/* ── 되돌리기 버튼 ── */
+.undo-group{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-right:4px;}
+.undo-group .undo-btn{border:none;border-radius:0;padding:7px 11px;font-size:15px;line-height:1;}
+.undo-group .undo-btn + .undo-btn{border-left:1px solid var(--border);}
+.undo-btn:disabled{opacity:.35;cursor:default;background:var(--surface2);}
+
+/* ── 확인 창 ── */
+.cd-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1400;animation:cd-fade .15s ease;}
+.cd-box{
+  position:fixed;z-index:1401;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(360px,90vw);background:var(--surface);border:1px solid var(--border);border-radius:16px;
+  padding:26px 24px 18px;box-shadow:0 24px 60px rgba(0,0,0,.5);color:var(--text);
+  display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;
+  animation:cd-pop .18s ease;
+}
+.cd-icon{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:22px;background:rgba(96,165,250,.15);color:var(--accent3);}
+.cd-icon.danger{background:rgba(248,113,113,.15);color:#f87171;}
+.cd-title{font-size:16px;font-weight:700;}
+.cd-msg{font-size:12.5px;line-height:1.6;color:var(--text-muted);word-break:keep-all;}
+.cd-actions{display:flex;gap:8px;width:100%;margin-top:8px;}
+.cd-btn{flex:1;border:none;border-radius:10px;padding:10px 0;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;transition:background .15s,box-shadow .15s;}
+.cd-cancel{background:var(--surface2);color:var(--text-muted);border:1px solid var(--border);}
+.cd-cancel:hover{background:var(--border);color:var(--text);}
+.cd-ok{background:var(--accent);color:#0f1117;}
+.cd-ok:hover{background:#86efac;}
+.cd-ok.danger{background:#f87171;color:#fff;}
+.cd-ok.danger:hover{background:#ef4444;}
+.cd-btn:focus-visible,.cd-btn:focus{outline:none;box-shadow:0 0 0 3px rgba(96,165,250,.45);}
+.cd-hint{font-size:10.5px;color:var(--text-muted);opacity:.8;}
+@keyframes cd-fade{from{opacity:0}to{opacity:1}}
+@keyframes cd-pop{from{opacity:0;transform:translate(-50%,-48%) scale(.96)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+
 /* ── PASSWORD MODAL ── */
 .pw-backdrop{
   position:fixed;inset:0;background:transparent;z-index:1100;cursor:default;
@@ -743,7 +797,10 @@ body.po-drag-active, body.po-drag-active *{cursor:grabbing !important;}
 <header>
   <div class="logo">SEAT<span>/</span>MAP</div>
   <span class="header-sub" style="font-size:12px;color:var(--text-muted);margin-left:6px;">교실 자리 배정 시스템</span>
-  <button class="header-assign" onclick="assign()" title="랜덤 자리 배정">🎲 <span class="ha-label">랜덤 자리 배정</span></button>
+  <div class="header-center">
+    <button class="header-assign" onclick="assign()" title="랜덤 자리 배정">🎲 <span class="ha-label">랜덤 자리 배정</span></button>
+    <button class="header-reset" onclick="resetSeatsFromHeader()" title="배정 초기화 (학생 목록·빈자리·지정석은 유지)">↺ <span class="ha-label">초기화</span></button>
+  </div>
   <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="라이트/다크 모드 전환">🌙</button>
   <button class="mobile-menu-btn" id="mobile-menu-btn" onclick="toggleSidebar()">
     <span></span><span></span><span></span>
@@ -758,8 +815,8 @@ body.po-drag-active, body.po-drag-active *{cursor:grabbing !important;}
     <div>
       <div class="section-label">📐 교실 설정</div>
       <div class="inline-row">
-        <div class="form-row"><label>행 (앞뒤)</label><input type="number" id="rows" value="6" min="1" max="12" onchange="buildGrid()"></div>
-        <div class="form-row"><label>열 (좌우)</label><input type="number" id="cols" value="6" min="1" max="12" onchange="buildGrid()"></div>
+        <div class="form-row"><label>행 (앞뒤)</label><input type="number" id="rows" value="6" min="1" max="12" onchange="onGridSizeChange()"></div>
+        <div class="form-row"><label>열 (좌우)</label><input type="number" id="cols" value="6" min="1" max="12" onchange="onGridSizeChange()"></div>
       </div>
     </div>
 
@@ -822,7 +879,7 @@ body.po-drag-active, body.po-drag-active *{cursor:grabbing !important;}
 
     <div style="display:flex;flex-direction:column;gap:7px;">
       <button class="btn-primary" onclick="assign()">🎲 랜덤 자리 배정</button>
-      <button class="btn-secondary" onclick="resetSeats()">↺ 배정 초기화</button>
+      <button class="btn-secondary" onclick="confirmResetSeats()">↺ 배정 초기화</button>
       <button class="btn-secondary" onclick="clearAll()">🗑 전체 초기화</button>
     </div>
   </aside>
@@ -842,6 +899,10 @@ body.po-drag-active, body.po-drag-active *{cursor:grabbing !important;}
         <button class="mode-tab mode-pin" id="tab-pin" onclick="setMode('pin')">📍 지정석 설정</button>
       </div>
       <div class="toolbar-actions">
+        <div class="undo-group">
+          <button class="btn-icon undo-btn" id="undo-btn" onclick="undo()" title="되돌리기 (Ctrl+Z)" disabled>↶</button>
+          <button class="btn-icon undo-btn" id="redo-btn" onclick="redo()" title="다시 실행 (Ctrl+Y)" disabled>↷</button>
+        </div>
         <button class="btn-icon" id="flip-btn" onclick="flipGrid()" title="교사/학생 시점 전환">⇅ 뒤집기</button>
         <button class="btn-icon" onclick="saveLog()" title="현재 배치를 JSON 파일로 저장합니다&#10;이전 배치 기록이 있으면 함께 저장됩니다">💾 기록</button>
         <button class="btn-icon" onclick="savePdf()" title="현재 배치를 PDF로 저장합니다">📄 PDF</button>
@@ -855,8 +916,11 @@ body.po-drag-active, body.po-drag-active *{cursor:grabbing !important;}
       </button>
       <div class="tips-content" id="tips-content">
         <b>🪑 자리 조작</b><br>
-        배치 전 빈 자리 클릭 → 빈자리(✕) 지정 / 재클릭 시 해제<br>
-        배치 후 학생 자리 클릭 → 자리 교환 (두 번째 자리 클릭 시 스왑)<br>
+        빈 자리 클릭 → ✕(사용 안 함) 지정 / 다시 클릭하면 해제 (배정 전후 모두)<br>
+        학생 클릭 → 옮길 자리 클릭 : 학생이면 <b>교환</b>, 빈자리면 <b>이동</b>, ✕면 <b>이동 후 원래 자리가 ✕</b><br>
+        선택 취소는 같은 자리 다시 클릭 · Esc · 배치도 바깥 클릭<br>
+        배정 후 상단 <b>↺ 초기화</b> → 배치만 지우고 학생·빈자리·지정석은 유지<br>
+        잘못 옮겼다면 <b>↶ 되돌리기 / ↷ 다시 실행</b> (Ctrl+Z / Ctrl+Y)<br>
         <br>
         <b>💾 기록 & 누적 배치</b><br>
         💾 기록 버튼을 누르면 현재 배치를 암호화된 JSON 파일로 저장<br>
@@ -1729,53 +1793,103 @@ function buildGrid(){
 let swapFirst = null; // { r, c } 첫 번째 선택 좌석
 
 function handleCellClick(r,c){
-  if(editMode==='block') { toggleBlocked(r,c); return; }
+  if(editMode==='block') { if(!pinnedSeats[`${r}-${c}`]) pushUndo(); toggleBlocked(r,c); return; }
   if(editMode==='pin'){
     const sel=document.getElementById('pin-student-select').value;
     if(!sel){showToast('먼저 학생을 선택하세요');return;}
     togglePinned(r,c,sel); return;
   }
 
-  // 일반 모드
+  // 일반 모드 — 규칙 하나: "학생을 누르고, 옮길 자리를 누르면 두 자리가 서로 바뀐다"
+  //   학생 ↔ 학생 : 자리 교환
+  //   학생 → 빈자리 : 이동 (원래 자리는 빈자리)
+  //   학생 → ✕     : 이동 + 원래 자리가 ✕
+  //   선택 없이 빈자리/✕ 클릭 : ✕ 켜고 끄기
   const key = `${r}-${c}`;
   const cell = document.getElementById(`seat-${key}`);
   if(!cell) return;
 
-  // 배정 전이라도 빈자리 지정은 가능
-  const isOccupied = currentAssignment && currentAssignment[r][c] && currentAssignment[r][c] !== '__x__';
+  const val = currentAssignment && currentAssignment[r] ? currentAssignment[r][c] : null;
+  const hasStudent = !!val && val !== '__x__' && !blockedSeats.has(key);
   const isPinned = !!pinnedSeats[key];
 
-  // 빈 셀(학생 없음, 지정석 아님) → 빈자리 토글
-  if(!isOccupied && !isPinned){
-    toggleBlocked(r,c); return;
+  if(isPinned){
+    if(currentAssignment) showToast('📍 지정석은 "지정석 설정"에서 바꿀 수 있어요');
+    return;
   }
 
-  // 학생 있는 셀 → 스왑
-  if(!currentAssignment) return;
-  if(blockedSeats.has(key)) return;
-
+  // 선택된 학생 없음
   if(!swapFirst){
-    if(cell.classList.contains('blocked')) return;
-    swapFirst = {r, c};
-    cell.classList.add('swap-selected');
-    showToast('교환할 두 번째 자리를 선택하세요');
-  } else {
-    const firstKey = `${swapFirst.r}-${swapFirst.c}`;
-    const firstCell = document.getElementById(`seat-${firstKey}`);
-    if(firstCell) firstCell.classList.remove('swap-selected');
-
-    if(firstKey === key){ swapFirst = null; return; }
-
-    const rows=+document.getElementById('rows').value;
-    const cols=+document.getElementById('cols').value;
-    const a = currentAssignment[swapFirst.r][swapFirst.c];
-    const b = currentAssignment[r][c];
-    currentAssignment[swapFirst.r][swapFirst.c] = b;
-    currentAssignment[r][c] = a;
-    swapFirst = null;
-    renderGrid(currentAssignment, rows, cols);
-    showToast('↔ 자리 교환 완료');
+    if(hasStudent){
+      swapFirst = { r, c };
+      cell.classList.add('swap-selected');
+      document.body.classList.add('seat-selecting');
+      showToast('옮길 자리를 누르세요 (학생·빈자리·✕ 모두 가능)');
+    } else {
+      pushUndo();
+      toggleBlocked(r, c);
+    }
+    return;
   }
+
+  // 선택된 학생 있음 → 두 자리 내용 교환
+  const from = swapFirst;
+  const fromKey = `${from.r}-${from.c}`;
+  clearSwapSelection();
+  if(fromKey === key) return; // 같은 자리 다시 누르면 선택 해제
+
+  pushUndo();
+  const moving = currentAssignment[from.r][from.c];
+  const toBlocked = blockedSeats.has(key);
+  if(toBlocked){
+    // ✕ 자리로 이동 → 원래 자리가 ✕가 됨
+    blockedSeats.delete(key); blockedSeats.add(fromKey);
+    currentAssignment[r][c] = moving;
+    currentAssignment[from.r][from.c] = '__x__';
+    showToast('↔ 이동 완료 — 원래 자리는 ✕');
+  } else if(hasStudent){
+    currentAssignment[from.r][from.c] = val;
+    currentAssignment[r][c] = moving;
+    showToast('↔ 자리 교환 완료');
+  } else {
+    currentAssignment[from.r][from.c] = null;
+    currentAssignment[r][c] = moving;
+    showToast('→ 빈자리로 이동 완료');
+  }
+  redrawAssignment();
+}
+
+function clearSwapSelection(){
+  if(swapFirst){
+    const c = document.getElementById(`seat-${swapFirst.r}-${swapFirst.c}`);
+    if(c) c.classList.remove('swap-selected');
+  }
+  swapFirst = null;
+  document.body.classList.remove('seat-selecting');
+}
+
+// 배치를 애니메이션 없이 다시 그림 (뒤집기 상태 유지)
+function redrawAssignment(){
+  if(!currentAssignment) return;
+  const rows = +document.getElementById('rows').value, cols = +document.getElementById('cols').value;
+  const gridEl = document.getElementById('seat-grid');
+  [...gridEl.children]
+    .sort((a,b)=> (+a.dataset.r - +b.dataset.r) || (+a.dataset.c - +b.dataset.c))
+    .forEach(el=>gridEl.appendChild(el));
+  renderGrid(currentAssignment, rows, cols);
+  gridEl.querySelectorAll('.seat-cell.animate').forEach(el=>{ el.classList.remove('animate'); el.style.animationDelay=''; });
+}
+
+// Esc 또는 자리 밖 클릭 → 선택 해제
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && swapFirst) clearSwapSelection(); });
+document.addEventListener('click', e=>{
+  if(swapFirst && !e.target.closest('#seat-grid')) clearSwapSelection();
+}, true);
+
+// 배정 상태 표시 (헤더 초기화 버튼 노출용)
+function setAssignedState(on){
+  document.body.classList.toggle('has-assignment', !!on);
+  if(!on) clearSwapSelection();
 }
 
 // ── BLOCKED ──
@@ -1785,6 +1899,7 @@ function toggleBlocked(r,c){
   if(pinnedSeats[key]){showToast('지정석은 빈자리로 만들 수 없어요');return;}
   if(blockedSeats.has(key)){
     blockedSeats.delete(key);
+    if(currentAssignment && currentAssignment[r][c]==='__x__') currentAssignment[r][c]=null;
     cell.className='seat-cell'; cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span>`;
   } else {
     blockedSeats.add(key);
@@ -1837,11 +1952,7 @@ function removePinnedForStudent(name){
 
 // ── MODE ──
 function setMode(mode){
-  if(swapFirst){
-    const cell=document.getElementById(`seat-${swapFirst.r}-${swapFirst.c}`);
-    if(cell) cell.classList.remove('swap-selected');
-    swapFirst=null;
-  }
+  clearSwapSelection();
   editMode=mode;
   document.body.classList.remove('mode-normal','mode-pin','mode-block');
   document.body.classList.add(`mode-${mode}`);
@@ -2171,8 +2282,10 @@ function assign(){
   }
   // show reveal overlay then render
   showRevealOverlay(()=>{
+    pushUndo();
     currentAssignment=bestGrid;
     renderGrid(bestGrid,rows,cols);
+    setAssignedState(true);
     
     document.getElementById('legend').style.display='flex';
     document.getElementById('toolbar-title').textContent=`자리 배치도 — ${new Date().toLocaleDateString('ko-KR')} ${new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})}`;
@@ -2243,6 +2356,144 @@ function renderGrid(grid,rows,cols){
   }
 }
 
+// ── 확인 창 (Enter = 확인, Esc = 취소) ──
+function confirmDialog({ icon='↺', title, message, okText='확인', cancelText='취소', danger=false }){
+  return new Promise(resolve=>{
+    document.getElementById('cd-wrap')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'cd-wrap';
+    wrap.innerHTML = `
+      <div class="cd-backdrop"></div>
+      <div class="cd-box" role="dialog" aria-modal="true">
+        <div class="cd-icon ${danger?'danger':''}">${icon}</div>
+        <div class="cd-title"></div>
+        <div class="cd-msg"></div>
+        <div class="cd-actions">
+          <button class="cd-btn cd-cancel" type="button"></button>
+          <button class="cd-btn cd-ok ${danger?'danger':''}" type="button"></button>
+        </div>
+        <div class="cd-hint">Enter 확인 · Esc 취소</div>
+      </div>`;
+    wrap.querySelector('.cd-title').textContent = title;
+    wrap.querySelector('.cd-msg').textContent = message;
+    const ok = wrap.querySelector('.cd-ok'), cancel = wrap.querySelector('.cd-cancel');
+    ok.textContent = okText; cancel.textContent = cancelText;
+    document.body.appendChild(wrap);
+    const prevFocus = document.activeElement;
+    const done = v=>{
+      document.removeEventListener('keydown', onKey, true);
+      wrap.remove();
+      if(prevFocus && prevFocus.focus) try{ prevFocus.blur(); }catch(_){}
+      resolve(v);
+    };
+    const onKey = e=>{
+      if(e.key === 'Enter'){
+        e.preventDefault(); e.stopPropagation();
+        // 취소 버튼에 포커스(Tab 이동)했으면 취소, 그 외엔 확인
+        done(document.activeElement !== cancel);
+      } else if(e.key === 'Escape'){
+        e.preventDefault(); e.stopPropagation(); done(false);
+      } else if(e.key === 'Tab'){
+        e.preventDefault();
+        (document.activeElement === ok ? cancel : ok).focus();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    ok.onclick = ()=>done(true);
+    cancel.onclick = ()=>done(false);
+    wrap.querySelector('.cd-backdrop').onclick = ()=>done(false);
+    ok.focus();
+  });
+}
+
+// ── 되돌리기 / 다시 실행 ──
+// 자리 이동·교환, ✕ 지정/해제, 랜덤 배정, 배정 초기화를 기록
+const undoStack = [], redoStack = [];
+const UNDO_LIMIT = 100;
+function snapshotState(){
+  return {
+    assignment: currentAssignment ? currentAssignment.map(row=>[...row]) : null,
+    blocked: [...blockedSeats],
+    title: document.getElementById('toolbar-title').textContent,
+  };
+}
+function pushUndo(){
+  undoStack.push(snapshotState());
+  if(undoStack.length > UNDO_LIMIT) undoStack.shift();
+  redoStack.length = 0;
+  updateUndoButtons();
+}
+function clearUndo(){ undoStack.length = 0; redoStack.length = 0; updateUndoButtons(); }
+function restoreState(st){
+  clearSwapSelection();
+  blockedSeats.clear(); st.blocked.forEach(k=>blockedSeats.add(k));
+  if(st.assignment){
+    currentAssignment = st.assignment.map(row=>[...row]);
+    redrawAssignment();
+    setAssignedState(true);
+    document.getElementById('legend').style.display='flex';
+  } else {
+    renderEmptySeats();
+    currentAssignment = null;
+    setAssignedState(false);
+    document.getElementById('legend').style.display='none';
+  }
+  document.getElementById('toolbar-title').textContent = st.title;
+}
+function undo(){
+  if(!undoStack.length){ showToast('되돌릴 작업이 없어요'); return; }
+  redoStack.push(snapshotState());
+  restoreState(undoStack.pop());
+  updateUndoButtons(); showToast('↶ 되돌렸어요');
+}
+function redo(){
+  if(!redoStack.length){ showToast('다시 실행할 작업이 없어요'); return; }
+  undoStack.push(snapshotState());
+  restoreState(redoStack.pop());
+  updateUndoButtons(); showToast('↷ 다시 실행했어요');
+}
+function updateUndoButtons(){
+  const u = document.getElementById('undo-btn'), r = document.getElementById('redo-btn');
+  if(u) u.disabled = !undoStack.length;
+  if(r) r.disabled = !redoStack.length;
+}
+// Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z (입력칸에서는 브라우저 기본 동작 유지)
+document.addEventListener('keydown', e=>{
+  if(!(e.ctrlKey || e.metaKey) || e.altKey) return;
+  const t = e.target;
+  if(t && (t.tagName==='INPUT' || t.tagName==='TEXTAREA' || t.tagName==='SELECT' || t.isContentEditable)) return;
+  if(document.getElementById('cd-wrap') || document.getElementById('po-box')) return;
+  const k = e.key.toLowerCase();
+  if(k==='z' && !e.shiftKey){ e.preventDefault(); undo(); }
+  else if(k==='y' || (k==='z' && e.shiftKey)){ e.preventDefault(); redo(); }
+});
+
+// 배치 없이 빈 좌석(✕·지정석만)으로 그리기
+function renderEmptySeats(){
+  const rows=+document.getElementById('rows').value, cols=+document.getElementById('cols').value;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const key=`${r}-${c}`, cell=document.getElementById(`seat-${key}`);
+    if(!cell) continue;
+    if(blockedSeats.has(key)){applyBlockedStyle(cell);continue;}
+    if(pinnedSeats[key]){applyPinnedStyle(cell,pinnedSeats[key]);continue;}
+    cell.className='seat-cell'; cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span>`;
+  }
+}
+
+// 사이드바·헤더의 "배정 초기화" 버튼
+async function confirmResetSeats(){
+  if(!currentAssignment){ showToast('초기화할 배정이 없어요'); return; }
+  const ok = await confirmDialog({
+    icon:'↺', title:'자리 배정을 초기화할까요?',
+    message:'현재 배치만 지워지고 학생 목록·빈자리(✕)·지정석·조건은 그대로 남아요. 초기화 후에도 ↶ 되돌리기로 복구할 수 있어요.',
+    okText:'초기화',
+  });
+  if(!ok) return;
+  pushUndo();
+  resetSeats();
+  showToast('↺ 배정 초기화 완료');
+}
+
 function resetSeats(){
   const rows=+document.getElementById('rows').value, cols=+document.getElementById('cols').value;
   for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
@@ -2253,16 +2504,34 @@ function resetSeats(){
     cell.className='seat-cell'; cell.innerHTML=`<span class="seat-num">${r+1}-${c+1}</span>`;
   }
   currentAssignment=null;
-  
+  setAssignedState(false);
   document.getElementById('legend').style.display='none';
   document.getElementById('toolbar-title').textContent='자리 배치도';
 }
-function clearAll(){
-  if(!confirm('학생 목록, 빈자리 설정, 지정석을 모두 초기화할까요?')) return;
+// 행·열을 바꾸면 기존 배치는 맞지 않으므로 배정 해제
+function onGridSizeChange(){
+  clearUndo();
+  if(currentAssignment){
+    currentAssignment=null; setAssignedState(false);
+    document.getElementById('legend').style.display='none';
+    document.getElementById('toolbar-title').textContent='자리 배치도';
+  }
+  buildGrid();
+}
+function resetSeatsFromHeader(){ confirmResetSeats(); }
+async function clearAll(){
+  const ok = await confirmDialog({
+    icon:'🗑', title:'전체 초기화할까요?', danger:true,
+    message:'학생 목록, 빈자리(✕), 지정석, 조건, 현재 배치가 모두 지워져요. 이 작업은 되돌릴 수 없어요.',
+    okText:'전체 초기화',
+  });
+  if(!ok) return;
+  clearUndo();
   students=[];conditions=[];blockedSeats.clear();
   rosterRows=null;
   Object.keys(pinnedSeats).forEach(k=>delete pinnedSeats[k]);
   currentAssignment=null;
+  setAssignedState(false);
   renderStudentList();updateCondSelects();updatePinSelect();renderCondChips();buildGrid();
   
   document.getElementById('legend').style.display='none';
@@ -2447,6 +2716,7 @@ function loadLogToGrid(i){
   document.getElementById('rows').value = log.rows;
   document.getElementById('cols').value = log.cols;
   buildGrid();
+  clearUndo();
 
   // buildGrid의 requestAnimationFrame 이후에 실행
   requestAnimationFrame(()=>{
@@ -2454,6 +2724,7 @@ function loadLogToGrid(i){
     log.seats.forEach(s=>{ if(s.r<log.rows && s.c<log.cols) grid[s.r][s.c]=s.name; });
     currentAssignment = grid;
     renderGrid(currentAssignment, log.rows, log.cols);
+    setAssignedState(true);
     const names = log.seats.map(s=>s.name).filter(Boolean);
     names.forEach(name=>{
       if(!students.find(s=>s.name===name)) students.push({name, frontFixed:false});
@@ -2547,6 +2818,7 @@ function previewLog(i){
   document.getElementById('rows').value=log.rows;
   document.getElementById('cols').value=log.cols;
   buildGrid();
+  clearUndo();
   // render seats from log
   const fakeGrid=Array.from({length:log.rows},()=>Array(log.cols).fill(null));
   log.seats.forEach(s=>{ if(s.r<log.rows&&s.c<log.cols) fakeGrid[s.r][s.c]=s.name; });
