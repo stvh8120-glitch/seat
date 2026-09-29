@@ -403,6 +403,36 @@ body.light .file-drop-zone{ border-color:#94a3b8; }
   min-height:var(--desk-h);
   font-size:var(--desk-fs, 12px);
 }
+/* ── 좌석 현황 (우하단) ── */
+.classroom-wrap{flex:1;position:relative;display:flex;flex-direction:column;min-height:0;}
+.classroom-wrap > .classroom-area{flex:1;min-height:0;}
+.seat-stats{
+  position:absolute;right:16px;bottom:12px;z-index:5;
+  background:color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  border:1px solid var(--border);border-radius:12px;padding:8px 12px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);min-width:180px;
+  display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text);
+  pointer-events:none;user-select:none;
+}
+.ss-main{display:flex;gap:16px;align-items:flex-end;}
+.ss-item{display:flex;flex-direction:column;gap:1px;}
+.ss-label{font-size:10.5px;color:var(--text-muted);letter-spacing:.3px;}
+.ss-val{font-family:var(--font-mono);font-size:19px;font-weight:700;line-height:1.1;}
+.ss-val small{font-size:12px;font-weight:600;color:var(--text-muted);margin-left:1px;}
+.ss-sub{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--text-muted);}
+.ss-sub b{color:var(--text);font-weight:700;margin-left:2px;}
+.ss-status{font-size:11px;font-weight:700;padding:3px 8px;border-radius:7px;text-align:center;}
+.ss-status.ok{background:rgba(74,222,128,.13);color:var(--accent);}
+.ss-status.info{background:rgba(96,165,250,.13);color:var(--accent3);}
+.ss-status.warn{background:rgba(248,113,113,.15);color:#f87171;}
+body.light .ss-status.warn{color:#dc2626;}
+@media(max-width:640px){
+  .seat-stats{right:10px;bottom:10px;min-width:0;padding:8px 10px;gap:5px;}
+  .ss-val{font-size:18px;}
+  .ss-sub{display:none;}
+}
+
 /* flipped — 교탁이 아래로, 행 순서는 JS가 역순 처리 */
 .classroom-area.flipped { flex-direction: column-reverse; }
 .classroom-area.flipped .desk-label { margin-bottom: 0; margin-top: 28px; }
@@ -582,7 +612,8 @@ body.mode-pin .seat-cell:not(.blocked):hover{border-color:var(--pinned-color);ba
 
 @media print{
   body{background:#fff;color:#000;}
-  header,.sidebar-wrap,.sidebar-toggle,.sidebar,.main-toolbar,.pin-panel,.block-hint,.tips-bar,.history-panel,.legend,#reveal-overlay,#toast{display:none!important;}
+  header,.sidebar-wrap,.sidebar-toggle,.sidebar,.main-toolbar,.pin-panel,.block-hint,.tips-bar,.history-panel,.legend,#reveal-overlay,#toast,.seat-stats{display:none!important;}
+  .classroom-wrap{display:block;position:static;}
   .app{display:block;height:auto;overflow:visible;}
   @page{ size:A4 landscape; margin:10mm; }
 
@@ -945,9 +976,12 @@ body.po-drag-active, body.po-drag-active *{cursor:grabbing !important;}
       <span class="pin-panel-hint">학생 선택 후 원하는 자리 클릭 | 같은 자리 재클릭 시 해제</span>
     </div>
 
-    <div class="classroom-area" id="classroom-area">
-      <div class="desk-label" id="desk-label">🏫 교탁</div>
-      <div id="seat-grid"></div>
+    <div class="classroom-wrap">
+      <div class="classroom-area" id="classroom-area">
+        <div class="desk-label" id="desk-label">🏫 교탁</div>
+        <div id="seat-grid"></div>
+      </div>
+      <div class="seat-stats" id="seat-stats" aria-live="polite"></div>
     </div>
 
     <div class="legend" id="legend">
@@ -1602,7 +1636,11 @@ function fitCells(){
       ? sidebar.offsetWidth + 22 : 22;
   const availW = window.innerWidth - sidebarW - 24;
   // 모바일에서 사이드바는 overlay라 높이 계산에서 제외
-  const availH = area.clientHeight - 32;
+  // 우하단 좌석 현황 카드와 겹치지 않도록 아래쪽 공간 확보
+  const statsEl = document.getElementById('seat-stats');
+  const statsReserve = statsEl ? Math.max(statsEl.offsetHeight, isMobile ? 60 : 80) + 16 : 0;
+  area.style.paddingBottom = (statsReserve + 8) + 'px';
+  const availH = area.clientHeight - 32 - statsReserve;
   const colGap = 16;
   const rowGap = 12;
   const RATIO  = 0.55;
@@ -2356,6 +2394,75 @@ function renderGrid(grid,rows,cols){
   }
 }
 
+// ── 좌석 현황 (우하단) ──
+// 남은 좌석 = 아직 학생을 앉힐 수 있는 자리 / 남은 학생 = 아직 자리가 없는 학생
+function computeSeatStats(){
+  const rows=+document.getElementById('rows').value, cols=+document.getElementById('cols').value;
+  const total = rows*cols;
+  let blocked = 0, pinned = 0;
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    const k=`${r}-${c}`;
+    if(blockedSeats.has(k)) blocked++;
+    else if(pinnedSeats[k]) pinned++;
+  }
+  const nameSet = new Set(students.map(s=>s.name));
+  const usable = total - blocked;
+  let seatsLeft, studentsLeft, seated = 0;
+  if(currentAssignment){
+    const placed = new Set();
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      const k=`${r}-${c}`;
+      if(blockedSeats.has(k)) continue;
+      const v = pinnedSeats[k] || (currentAssignment[r] && currentAssignment[r][c]);
+      if(v && v !== '__x__' && nameSet.has(v)) placed.add(v);
+    }
+    seated = placed.size;
+    seatsLeft = usable - seated;
+    studentsLeft = students.length - seated;
+  } else {
+    const pinnedStudents = new Set(Object.values(pinnedSeats).filter(n=>nameSet.has(n))).size;
+    seatsLeft = usable - pinned;
+    studentsLeft = students.length - pinnedStudents;
+  }
+  return { total, blocked, pinned, usable, seatsLeft, studentsLeft, seated, students:students.length, assigned:!!currentAssignment };
+}
+function updateSeatStats(){
+  const el = document.getElementById('seat-stats');
+  if(!el) return;
+  const st = computeSeatStats();
+  let status;
+  if(!st.students){
+    status = ['info', '학생을 추가해 주세요'];
+  } else if(st.assigned){
+    status = st.studentsLeft > 0
+      ? ['warn', `⚠ 자리 없는 학생 ${st.studentsLeft}명`]
+      : ['ok', `✓ 전원 배정 완료${st.seatsLeft ? ` · 빈자리 ${st.seatsLeft}` : ''}`];
+  } else {
+    const diff = st.seatsLeft - st.studentsLeft;
+    status = diff < 0 ? ['warn', `⚠ 자리 ${-diff}개 부족`]
+           : diff === 0 ? ['ok', '✓ 자리와 학생 수가 딱 맞아요']
+           : ['ok', `✓ 배정 후 빈자리 ${diff}개`];
+  }
+  el.innerHTML = `
+    <div class="ss-main">
+      <div class="ss-item"><span class="ss-label">남은 좌석</span><span class="ss-val">${st.seatsLeft}<small>석</small></span></div>
+      <div class="ss-item"><span class="ss-label">남은 학생</span><span class="ss-val">${st.studentsLeft}<small>명</small></span></div>
+    </div>
+    <div class="ss-sub">
+      <span>전체<b>${st.total}</b></span>
+      <span>✕<b>${st.blocked}</b></span>
+      <span>📍<b>${st.pinned}</b></span>
+      <span>학생<b>${st.students}</b></span>
+    </div>
+    <div class="ss-status ${status[0]}">${status[1]}</div>`;
+}
+let _statsQueued = false;
+function queueSeatStats(){
+  if(_statsQueued) return;
+  _statsQueued = true;
+  requestAnimationFrame(()=>{ _statsQueued = false; updateSeatStats(); });
+}
+
 // ── 확인 창 (Enter = 확인, Esc = 취소) ──
 function confirmDialog({ icon='↺', title, message, okText='확인', cancelText='취소', danger=false }){
   return new Promise(resolve=>{
@@ -3012,6 +3119,14 @@ function showToast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
   clearTimeout(window._tt); window._tt=setTimeout(()=>t.classList.remove('show'),2200);
 }
+
+// 좌석·학생이 바뀌는 모든 지점에서 현황 갱신
+['buildGrid','renderGrid','toggleBlocked','togglePinned','removePinnedForStudent','renderStudentList',
+ 'resetSeats','renderEmptySeats','redrawAssignment','setAssignedState','restoreState'].forEach(name=>{
+  const fn = window[name];
+  if(typeof fn !== 'function') return;
+  window[name] = function(...args){ const r = fn.apply(this, args); queueSeatStats(); return r; };
+});
 
 buildGrid();
 </script>
