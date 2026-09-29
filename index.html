@@ -1339,7 +1339,7 @@ function openPrintOptions(){
       <div class="po-dim-head">
         <div>
           <div class="po-switch-title">흐리게 인쇄할 학생 <span class="po-dim-count" id="po-dim-count"></span></div>
-          <div class="po-switch-desc">누른 학생은 이름 전체가 흐리게 인쇄돼요 · 기본은 괄호 부분만 흐리게</div>
+          <div class="po-switch-desc">누른 학생은 좌석의 이름 전체가 흐리게 인쇄돼요 (명렬표는 그대로) · 기본은 괄호 부분만 흐리게</div>
         </div>
         <button type="button" class="po-link" id="po-dim-clear">모두 해제</button>
       </div>
@@ -1661,11 +1661,9 @@ function printWithRoster(){
     chunk.forEach((r, k)=>{
       const tr = document.createElement('tr');
       const bg = k % 2 ? '#f7f8fa' : '#fff';
-      const dim = isDimmedRosterName(r.name);
-      const vals = dim
-        ? [[r.no, 'color:#b6bcc6;font-weight:500;'], [r.name, 'color:#9ca3af;font-weight:500;']]
-        : [[r.no, 'color:#6b7280;font-weight:600;'], [r.name, 'font-weight:600;color:#111;']];
-      if(showExtra) vals.push([r.extra, dim ? 'color:#b6bcc6;' : 'color:#374151;']);
+      // 흐리게 처리는 좌석에만 적용 — 명렬표는 항상 원래 색
+      const vals = [[r.no, 'color:#6b7280;font-weight:600;'], [r.name, 'font-weight:600;color:#111;']];
+      if(showExtra) vals.push([r.extra, 'color:#374151;']);
       vals.forEach(([v, extra])=>{
         const td = document.createElement('td');
         td.textContent = v || '';
@@ -2630,8 +2628,12 @@ function renderGrid(grid,rows,cols){
     }
   }
   // 뒤집힌 상태면 행+열 순서 재적용
+  // (이미 뒤집힌 순서에서 또 뒤집지 않도록 항상 원래 순서로 정렬한 뒤 적용)
   if(isFlipped){
     const gridEl=document.getElementById('seat-grid');
+    Array.from(gridEl.children)
+      .sort((x,y)=>(+x.dataset.r - +y.dataset.r) || (+x.dataset.c - +y.dataset.c))
+      .forEach(el=>gridEl.appendChild(el));
     const cells=Array.from(gridEl.children);
     const rowGroups=[];
     for(let r=0;r<rows;r++) rowGroups.push(cells.slice(r*cols,(r+1)*cols));
